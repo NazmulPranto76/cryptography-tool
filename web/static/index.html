@@ -1,0 +1,1368 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cryptography Tool</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: { 400: '#818cf8', 500: '#6366f1', 600: '#4f46e5' },
+            surface: { DEFAULT: '#1e1e2e', card: '#2a2a3e', border: '#3b3b52' }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    [x-cloak] { display: none !important; }
+    * { box-sizing: border-box; }
+    body { background: #0d0d1a; color: #cdd6f4; font-family: 'Inter', system-ui, sans-serif; margin: 0; }
+
+
+    #matrixCanvas {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      pointer-events: none; z-index: 0; opacity: 0.15;
+    }
+
+    .home-wrapper {
+      position: relative; z-index: 1; min-height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 2rem 1rem;
+    }
+
+    .terminal {
+      background: rgba(13, 13, 26, 0.92);
+      border: 1px solid #2a2a4a;
+      border-radius: 10px;
+      padding: 1.5rem 2rem;
+      width: min(680px, 95vw);
+      height: 195px;
+      box-shadow: 0 0 60px rgba(99,102,241,0.1), 0 0 120px rgba(99,102,241,0.04);
+      backdrop-filter: blur(10px);
+      position: relative; overflow: hidden;
+    }
+
+    .enc-fade {
+      transition: opacity 0.35s ease, transform 0.35s ease;
+    }
+    .enc-fade.hidden-out {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    .terminal::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 1px;
+      background: linear-gradient(90deg, transparent, #6366f1 40%, #818cf8 60%, transparent);
+      animation: tline 3s ease-in-out infinite;
+    }
+    @keyframes tline { 0%,100%{opacity:.4} 50%{opacity:1} }
+    .terminal-header {
+      display: flex; align-items: center; gap: 0.4rem;
+      margin-bottom: 1.2rem; padding-bottom: 0.75rem;
+      border-bottom: 1px solid #1e1e38;
+    }
+    .dot { width: 10px; height: 10px; border-radius: 50%; }
+    .terminal-line {
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 1.05rem; line-height: 1.65; min-height: 1.65rem;
+    }
+    .cipher-line {
+      font-size: 0.9rem;
+      white-space: nowrap;
+      overflow: hidden;
+    }
+    .term-prompt {
+      margin-right: 0.5rem;
+      transition: color 0.25s ease;
+      font-weight: 700;
+    }
+    .plain-text { color: #e2e8f0; }
+    .algo-badge {
+      display: inline-block;
+      font-size: 0.65rem; font-weight: 700; letter-spacing: 0.12em;
+      padding: 0.15rem 0.55rem;
+      border-radius: 4px;
+      margin-bottom: 0.5rem;
+      font-family: monospace;
+    }
+    .cursor {
+      display: inline-block; width: 2px; height: 1.1em;
+      background: currentColor; margin-left: 2px;
+      vertical-align: text-bottom;
+      animation: blink 0.9s step-end infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+    .bubbles-wrap {
+      display: flex; flex-wrap: wrap;
+      justify-content: center; gap: 0.65rem;
+      margin: 2.2rem 0 2.5rem;
+      max-width: 680px;
+    }
+    .bubble {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem; font-weight: 600;
+      letter-spacing: 0.12em; text-transform: uppercase;
+      padding: 0.45rem 1.1rem;
+      border-radius: 4px;
+      border: 1px solid #2a2a4a;
+      background: rgba(20, 20, 40, 0.6);
+      color: #64748b;
+      cursor: pointer; user-select: none;
+      transition: color 0.2s, border-color 0.2s, background 0.2s, box-shadow 0.2s;
+    }
+    .bubble:hover {
+      color: #a5b4fc;
+      border-color: #6366f1;
+      background: rgba(99,102,241,0.08);
+    }
+    .bubble.active {
+      color: #c7d2fe;
+      border-color: #818cf8;
+      background: rgba(99,102,241,0.14);
+      box-shadow: 0 0 18px rgba(99,102,241,0.25);
+    }
+
+    .enter-btn {
+      background: linear-gradient(135deg, #4f46e5, #7c3aed);
+      color: white; border: none; border-radius: 8px;
+      padding: 0.75rem 2.5rem; font-size: 0.9rem; font-weight: 600;
+      cursor: pointer; letter-spacing: 0.05em;
+      box-shadow: 0 0 32px rgba(99,102,241,0.35);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .enter-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 52px rgba(99,102,241,0.55);
+    }
+
+    @keyframes blob1 { 0%,100%{transform:translate(0,0) scale(1)} 40%{transform:translate(40px,-30px) scale(1.06)} 70%{transform:translate(-20px,15px) scale(0.96)} }
+    @keyframes blob2 { 0%,100%{transform:translate(0,0) scale(1)} 35%{transform:translate(-35px,25px) scale(1.04)} 65%{transform:translate(25px,-20px) scale(0.97)} }
+
+    .app-wrapper {
+      min-height: 100vh;
+      background: #07071a;
+      position: relative;
+    }
+
+    .app-wrapper::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image: radial-gradient(rgba(99,102,241,0.1) 1px, transparent 1px);
+      background-size: 30px 30px;
+      pointer-events: none; z-index: 0;
+    }
+    .bg-blob {
+      position: fixed; border-radius: 50%;
+      pointer-events: none; z-index: 0;
+      filter: blur(80px);
+    }
+    .bg-blob-1 {
+      width: 55vw; height: 55vh;
+      top: -15%; left: -10%;
+      background: radial-gradient(circle, rgba(99,102,241,0.09) 0%, transparent 70%);
+      animation: blob1 18s ease-in-out infinite;
+    }
+    .bg-blob-2 {
+      width: 65vw; height: 60vh;
+      bottom: -20%; right: -15%;
+      background: radial-gradient(circle, rgba(124,58,237,0.07) 0%, transparent 70%);
+      animation: blob2 22s ease-in-out infinite;
+    }
+
+    nav, aside, main { position: relative; z-index: 1; }
+
+    .card {
+      background: rgba(13,13,34,0.82);
+      border: 1px solid rgba(99,102,241,0.18);
+      border-radius: 12px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.03);
+      backdrop-filter: blur(6px);
+    }
+
+    .input-field {
+      background: rgba(5,5,18,0.85);
+      border: 1px solid rgba(99,102,241,0.2);
+      color: #e2e8f0;
+      border-radius: 8px;
+      padding: 0.6rem 0.9rem;
+      width: 100%;
+      font-size: 0.9rem;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .input-field::placeholder { color: #4a4a7a; }
+    .input-field:focus {
+      outline: none;
+      border-color: #6366f1;
+      box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+      color: white; border-radius: 7px;
+      padding: 0.5rem 1.4rem; font-weight: 600; font-size: 0.875rem;
+      transition: opacity 0.15s, box-shadow 0.2s, transform 0.15s;
+      cursor: pointer; border: none;
+      box-shadow: 0 0 20px rgba(99,102,241,0.3);
+    }
+    .btn-primary:hover {
+      opacity: 0.9;
+      box-shadow: 0 0 32px rgba(99,102,241,0.5);
+      transform: translateY(-1px);
+    }
+    .btn-primary:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+
+    .result-box {
+      background: rgba(4,4,16,0.9);
+      border: 1px solid rgba(99,102,241,0.22);
+      border-radius: 8px;
+      padding: 1rem;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 0.83rem;
+      color: #c4b5fd;
+      word-break: break-all; white-space: pre-wrap;
+      max-height: 220px; overflow-y: auto;
+    }
+
+    .section-label {
+      font-size: 0.62rem; text-transform: uppercase;
+      letter-spacing: 0.16em; color: #4a4a72;
+      font-weight: 800;
+    }
+
+    .sidebar-item {
+      display: flex; align-items: center; gap: 0.65rem;
+      padding: 0.55rem 1rem;
+      border-radius: 7px; cursor: pointer;
+      font-size: 0.85rem; font-weight: 500; color: #6b6b9e;
+      border-left: 2px solid transparent;
+      transition: color 0.15s, background 0.15s, border-color 0.15s;
+    }
+    .sidebar-item:hover { color: #a5b4fc; background: rgba(99,102,241,0.08); }
+    .sidebar-item.active {
+      color: #c7d2fe; font-weight: 600;
+      background: rgba(99,102,241,0.15);
+      border-left-color: #6366f1;
+    }
+
+    .tab-btn {
+      padding: 0.35rem 0.9rem; border-radius: 6px;
+      font-size: 0.82rem; font-weight: 600;
+      cursor: pointer; color: #5a5a88;
+      border: 1px solid transparent;
+      background: transparent;
+      transition: color 0.15s, background 0.15s, border-color 0.15s;
+    }
+    .tab-btn:hover { color: #94a3b8; background: rgba(99,102,241,0.06); }
+    .tab-btn.active {
+      color: #a5b4fc;
+      background: rgba(99,102,241,0.14);
+      border-color: rgba(99,102,241,0.35);
+    }
+
+    .app-wrapper main h2 {
+      display: flex; align-items: center; gap: 0.65rem;
+      font-size: 1.2rem !important; font-weight: 700;
+      color: #f1f5f9 !important; margin-bottom: 0.2rem !important;
+    }
+    .app-wrapper main h2::before {
+      content: '';
+      display: inline-block; flex-shrink: 0;
+      width: 3px; height: 1.15em;
+      background: linear-gradient(180deg, #6366f1, #8b5cf6);
+      border-radius: 2px;
+    }
+
+    .app-wrapper main > div > p { color: #6e7898 !important; }
+
+    /* Badges */
+    .badge { display: inline-block; padding: 0.15rem 0.55rem; border-radius: 4px; font-size: 0.68rem; font-weight: 700; }
+    .badge-green  { background: #14291e; color: #4ade80; }
+    .badge-yellow { background: #29200e; color: #fbbf24; }
+    .badge-red    { background: #29100e; color: #f87171; }
+    .badge-blue   { background: #0e1e33; color: #60a5fa; }
+
+    .mono { font-family: 'JetBrains Mono', 'Fira Code', monospace; }
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: #07071a; }
+    ::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.3); border-radius: 3px; }
+  </style>
+</head>
+
+<body x-data="cryptoApp()">
+
+<canvas id="matrixCanvas"></canvas>
+
+<!-- ═══════════════════════════════ HOMEPAGE ════════════════════════════════ -->
+<div x-show="view === 'home'" x-cloak class="home-wrapper" id="homeSection">
+
+  <!-- Top label -->
+  <div class="text-center mb-8">
+    <div style="font-family:monospace;font-size:0.7rem;letter-spacing:0.2em;color:#3b3b60;text-transform:uppercase;margin-bottom:0.5rem;">a personal project</div>
+    <h1 style="font-family:'Inter',system-ui,sans-serif;font-size:2rem;font-weight:700;color:#e2e8f0;letter-spacing:-0.02em;">
+      Cryptography <span style="color:#818cf8">Tool</span>
+    </h1>
+  </div>
+
+
+  <div class="terminal">
+    <div class="terminal-header">
+      <div class="dot" style="background:#ef4444"></div>
+      <div class="dot" style="background:#fbbf24"></div>
+      <div class="dot" style="background:#4ade80"></div>
+      <span class="text-xs text-gray-600 ml-2 mono">cipher — interactive</span>
+    </div>
+
+
+    <div>
+      <div style="min-height:1.6rem;margin-bottom:0.4rem;">
+        <span x-show="showBadge"
+              x-transition:enter="transition ease-out duration-300"
+              x-transition:enter-start="opacity-0 -translate-y-1"
+              x-transition:enter-end="opacity-100 translate-y-0"
+              class="algo-badge"
+              :style="`background:${currentAlgo.bg}; color:${currentAlgo.color};`"
+              x-text="`[ ${currentAlgo.label} ]`">
+        </span>
+      </div>
+      <div class="terminal-line">
+        <span class="term-prompt"
+              :style="`color:${isCipher ? currentAlgo.color : '#6366f1'}`"
+              x-text="isCipher ? '>' : '$'">
+        </span>
+
+        <span :class="isCipher ? 'cipher-line' : 'plain-text'"
+              :style="`color:${isCipher ? currentAlgo.color : '#e2e8f0'}`"
+              x-text="displayText">
+        </span>
+
+        <span class="cursor"
+              x-show="phase !== 'encrypted'"
+              :style="`color:${isCipher ? currentAlgo.color : '#818cf8'}`">
+        </span>
+      </div>
+    </div>
+  </div>
+
+
+  <p style="font-family:monospace;font-size:0.65rem;font-weight:700;color:#3b3b60;letter-spacing:0.15em;text-transform:uppercase;margin-top:2rem;margin-bottom:0;">
+    select algorithm — watch live encryption
+  </p>
+
+
+  <div class="bubbles-wrap">
+    <template x-for="(algo, key) in ALGOS" :key="key">
+      <button
+        class="bubble"
+        :class="{ active: selectedAlgo === key }"
+        @click="selectAlgo(key)">
+        <span x-text="algo.short"></span>
+      </button>
+    </template>
+  </div>
+
+  <button class="enter-btn" @click="enterTool()">
+    Enter the Tool →
+  </button>
+
+
+</div>
+
+
+<!-- ═══════════════════════════════ MAIN APP ════════════════════════════════ -->
+<div x-show="view === 'app'" x-cloak class="app-wrapper">
+
+  <div class="bg-blob bg-blob-1"></div>
+  <div class="bg-blob bg-blob-2"></div>
+
+
+  <nav style="display:flex;align-items:center;justify-content:space-between;padding:0.65rem 1.5rem;background:rgba(7,7,26,0.92);border-bottom:1px solid rgba(99,102,241,0.12);backdrop-filter:blur(8px);">
+    <div style="display:flex;align-items:center;gap:1rem;">
+      <button @click="view='home'; startAnimation()"
+        style="font-family:monospace;font-size:0.75rem;color:#4a4a70;background:transparent;border:1px solid #1e1e3a;padding:0.25rem 0.6rem;cursor:pointer;letter-spacing:0.1em;transition:color 0.15s,border-color 0.15s;"
+        onmouseover="this.style.color='#818cf8';this.style.borderColor='#6366f1'"
+        onmouseout="this.style.color='#4a4a70';this.style.borderColor='#1e1e3a'"
+        title="Back to home">← back</button>
+      <span style="font-family:'Inter',system-ui,sans-serif;font-size:0.875rem;font-weight:600;color:#e2e8f0;letter-spacing:-0.01em;">Cryptography <span style="color:#818cf8">Tool</span></span>
+    </div>
+    <span style="font-family:monospace;font-size:0.65rem;color:#4a4a70;letter-spacing:0.15em;">Python — from scratch</span>
+  </nav>
+
+  <div class="flex" style="height:calc(100vh - 45px);">
+
+
+    <aside class="flex flex-col py-4 px-2 gap-1 overflow-y-auto flex-shrink-0"
+           style="width:13.5rem; border-right:1px solid rgba(99,102,241,0.1); background:rgba(7,7,26,0.7);">
+      <div class="section-label px-3 mb-1">classical</div>
+      <template x-for="item in navItems.slice(0,2)" :key="item.id">
+        <div class="sidebar-item" :class="{active: appPage===item.id}" @click="appPage=item.id; clearResult()">
+          <span x-text="item.label" class="text-sm"></span>
+        </div>
+      </template>
+      <div class="section-label px-3 mt-3 mb-1">symmetric</div>
+      <template x-for="item in navItems.slice(2,4)" :key="item.id">
+        <div class="sidebar-item" :class="{active: appPage===item.id}" @click="appPage=item.id; clearResult()">
+          <span x-text="item.label" class="text-sm"></span>
+        </div>
+      </template>
+      <div class="section-label px-3 mt-3 mb-1">public_key</div>
+      <template x-for="item in navItems.slice(4,6)" :key="item.id">
+        <div class="sidebar-item" :class="{active: appPage===item.id}" @click="appPage=item.id; clearResult()">
+          <span x-text="item.label" class="text-sm"></span>
+        </div>
+      </template>
+      <div class="section-label px-3 mt-3 mb-1">analysis</div>
+      <div class="sidebar-item" :class="{active: appPage==='analysis'}" @click="appPage='analysis'">
+        <span class="text-sm">Performance</span>
+      </div>
+      <div class="sidebar-item" :class="{active: appPage==='analysis-suite'}" @click="appPage='analysis-suite'; clearResult()">
+        <span class="text-sm">Analysis Suite</span>
+      </div>
+    </aside>
+
+
+    <main class="flex-1 overflow-y-auto p-8" style="background:transparent;">
+
+
+      <div x-show="appPage==='substitution'" x-cloak>
+        <h2 style="font-size:1.1rem;font-weight:700;color:#e2e8f0;margin-bottom:0.3rem;">Substitution Cipher</h2>
+        <div class="flex gap-2 mb-5">
+          <button class="tab-btn" :class="{active:subTab==='enc'}" @click="subTab='enc'">Encrypt</button>
+          <button class="tab-btn" :class="{active:subTab==='dec'}" @click="subTab='dec'">Decrypt</button>
+          <button class="tab-btn" :class="{active:subTab==='ana'}" @click="subTab='ana'">Freq. Analysis</button>
+        </div>
+        <div x-show="subTab==='enc'" class="card p-5 space-y-4">
+          <div><label class="section-label">Plaintext</label>
+            <textarea x-model="sub.plaintext" class="input-field mt-1 h-20 resize-none" placeholder="Enter any text&hellip;"></textarea></div>
+          <div><label class="section-label">Key (26 letters, blank = random)</label>
+            <input x-model="sub.key" class="input-field mt-1 mono" placeholder="e.g. QWERTYUIOPASDFGHJKLZXCVBNM" maxlength="26"/></div>
+          <button class="btn-primary" @click="subEncrypt()">Encrypt</button>
+          <template x-if="result.ciphertext">
+            <div class="space-y-2">
+              <div><div class="section-label">Key Used</div><div class="result-box mono" x-text="result.key"></div></div>
+              <div><div class="section-label">Ciphertext</div><div class="result-box mono" x-text="result.ciphertext"></div></div>
+            </div>
+          </template>
+        </div>
+        <div x-show="subTab==='dec'" class="card p-5 space-y-4">
+          <div><label class="section-label">Ciphertext</label>
+            <textarea x-model="sub.ciphertext" class="input-field mt-1 h-20 resize-none"></textarea></div>
+          <div><label class="section-label">Key</label>
+            <input x-model="sub.key" class="input-field mt-1 mono"/></div>
+          <button class="btn-primary" @click="subDecrypt()">Decrypt</button>
+          <template x-if="result.plaintext">
+            <div><div class="section-label">Plaintext</div><div class="result-box" x-text="result.plaintext"></div></div>
+          </template>
+        </div>
+        <div x-show="subTab==='ana'" class="card p-5 space-y-4">
+          <div><label class="section-label">Ciphertext to Analyze</label>
+            <textarea x-model="sub.ciphertext" class="input-field mt-1 h-20 resize-none"></textarea></div>
+          <button class="btn-primary" @click="subAnalyze()">Analyze</button>
+          <template x-if="result.guessed_plaintext">
+            <div class="space-y-3">
+              <div>
+                <div class="section-label mb-2">Letter Frequencies</div>
+                <div class="grid grid-cols-4 gap-1" style="font-size:.75rem;">
+                  <template x-for="[l,c] in Object.entries(result.freq||{}).sort((a,b)=>b[1]-a[1]).slice(0,12)" :key="l">
+                    <div class="flex items-center gap-1">
+                      <span class="mono font-bold w-4" x-text="l"></span>
+                      <div class="flex-1 rounded-full h-2" style="background:#3b3b52;">
+                        <div class="h-2 rounded-full" style="background:#6366f1;" :style="`width:${Math.round(c/result.total*100)*2}%`"></div>
+                      </div>
+                      <span class="text-gray-400 w-8 text-right" x-text="Math.round(c/result.total*100)+'%'"></span>
+                    </div>
+                  </template>
+                </div>
+              </div>
+              <div><div class="section-label">Guessed Plaintext</div><div class="result-box" x-text="result.guessed_plaintext"></div></div>
+            </div>
+          </template>
+        </div>
+        <div x-show="error" class="mt-3 p-3 rounded text-sm" style="background:rgba(239,68,68,.15);color:#f87171;" x-text="error"></div>
+      </div>
+
+
+      <div x-show="appPage==='transposition'" x-cloak>
+        <h2 style="font-size:1.1rem;font-weight:700;color:#e2e8f0;margin-bottom:0.3rem;">Double Transposition Cipher</h2>
+        <div class="flex gap-2 mb-5">
+          <button class="tab-btn" :class="{active:transTab==='enc'}" @click="transTab='enc'">Encrypt</button>
+          <button class="tab-btn" :class="{active:transTab==='dec'}" @click="transTab='dec'">Decrypt</button>
+        </div>
+        <div class="card p-5 space-y-4">
+          <div><label class="section-label" x-text="transTab==='enc'?'Plaintext':'Ciphertext'"></label>
+            <textarea x-model="trans.text" class="input-field mt-1 h-20 resize-none" placeholder="Enter text&hellip;"></textarea></div>
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="section-label">Key 1 (e.g. "3 1 4 2")</label>
+              <input x-model="trans.key1" class="input-field mt-1 mono" placeholder="3 1 4 2"/></div>
+            <div><label class="section-label">Key 2 (e.g. "2 4 1 3")</label>
+              <input x-model="trans.key2" class="input-field mt-1 mono" placeholder="2 4 1 3"/></div>
+          </div>
+          <button class="btn-primary" @click="transTab==='enc'?transEncrypt():transDecrypt()" x-text="transTab==='enc'?'Encrypt':'Decrypt'"></button>
+          <template x-if="result.ciphertext||result.plaintext">
+            <div class="space-y-2">
+              <template x-if="result.after_first_transpose">
+                <div><div class="section-label">After 1st Transposition</div><div class="result-box mono" x-text="result.after_first_transpose"></div></div>
+              </template>
+              <template x-if="result.ciphertext">
+                <div><div class="section-label">Ciphertext</div><div class="result-box mono" x-text="result.ciphertext"></div></div>
+              </template>
+              <template x-if="result.plaintext">
+                <div><div class="section-label">Plaintext</div><div class="result-box mono" x-text="result.plaintext"></div></div>
+              </template>
+            </div>
+          </template>
+          <div x-show="error" class="p-3 rounded text-sm" style="background:rgba(239,68,68,.15);color:#f87171;" x-text="error"></div>
+        </div>
+      </div>
+
+
+      <div x-show="appPage==='des'" x-cloak>
+        <h2 style="font-size:1.1rem;font-weight:700;color:#e2e8f0;margin-bottom:0.3rem;">DES</h2>
+        <div class="flex gap-2 mb-5">
+          <button class="tab-btn" :class="{active:desTab==='enc'}" @click="desTab='enc'">Encrypt</button>
+          <button class="tab-btn" :class="{active:desTab==='dec'}" @click="desTab='dec'">Decrypt</button>
+          <button class="tab-btn" :class="{active:desTab==='keys'}" @click="desTab='keys'">Round Keys</button>
+        </div>
+        <div x-show="desTab==='enc'" class="card p-5 space-y-4">
+          <div><label class="section-label">Plaintext (any length)</label>
+            <textarea x-model="des.plaintext" class="input-field mt-1 h-20 resize-none" placeholder="Enter any text&hellip;"></textarea></div>
+          <div><label class="section-label">Key hex (blank = random)</label>
+            <input x-model="des.keyHex" class="input-field mt-1 mono" placeholder="auto-generated"/></div>
+          <button class="btn-primary" @click="desEncrypt()">Encrypt</button>
+          <template x-if="result.ciphertext_hex">
+            <div class="space-y-2">
+              <div><div class="section-label">Key (hex)</div><div class="result-box mono" x-text="result.key_hex"></div></div>
+              <div><div class="section-label">Blocks encrypted</div><span class="text-sm text-gray-300" x-text="result.num_blocks+' block(s) of 8 bytes'"></span></div>
+              <div><div class="section-label">Ciphertext (hex)</div><div class="result-box mono" x-text="result.ciphertext_hex"></div></div>
+            </div>
+          </template>
+          <div x-show="error" class="p-3 rounded text-sm" style="background:rgba(239,68,68,.15);color:#f87171;" x-text="error"></div>
+        </div>
+        <div x-show="desTab==='dec'" class="card p-5 space-y-4">
+          <div><label class="section-label">Ciphertext (hex)</label>
+            <input x-model="des.ctHex" class="input-field mt-1 mono" placeholder="Paste from encrypt output"/></div>
+          <div><label class="section-label">Key (hex)</label>
+            <input x-model="des.keyHex" class="input-field mt-1 mono"/></div>
+          <button class="btn-primary" @click="desDecrypt()">Decrypt</button>
+          <template x-if="result.plaintext !== undefined">
+            <div><div class="section-label">Plaintext</div><div class="result-box" x-text="result.plaintext"></div></div>
+          </template>
+          <div x-show="error" class="p-3 rounded text-sm" style="background:rgba(239,68,68,.15);color:#f87171;" x-text="error"></div>
+        </div>
+        <div x-show="desTab==='keys'" class="card p-5">
+          <p style="font-size:0.8rem;color:#4a4a70;margin-bottom:3px;">Encrypt something first to see round keys.</p>
+          <template x-if="result.round_keys_hex">
+            <div><div class="section-label mb-2">8 Round Keys</div>
+              <div class="space-y-1">
+                <template x-for="(rk,i) in result.round_keys_hex" :key="i">
+                  <div class="flex items-center gap-3 text-sm">
+                    <span class="text-gray-500 w-16">Round <span x-text="i+1"></span></span>
+                    <span class="mono text-green-400" x-text="rk"></span>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+
+      <div x-show="appPage==='aes'" x-cloak>
+        <h2 style="font-size:1.1rem;font-weight:700;color:#e2e8f0;margin-bottom:0.3rem;">AES — Advanced Encryption Standard</h2>
+        <div class="flex gap-2 mb-5">
+          <button class="tab-btn" :class="{active:aesTab==='enc'}" @click="aesTab='enc'">Encrypt</button>
+          <button class="tab-btn" :class="{active:aesTab==='dec'}" @click="aesTab='dec'">Decrypt</button>
+          <button class="tab-btn" :class="{active:aesTab==='keys'}" @click="aesTab='keys'">Round Keys</button>
+        </div>
+        <div x-show="aesTab==='enc'" class="card p-5 space-y-4">
+          <div><label class="section-label">Plaintext (any length)</label>
+            <textarea x-model="aesData.plaintext" class="input-field mt-1 h-20 resize-none"></textarea></div>
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="section-label">Key Size</label>
+              <select x-model="aesData.keySize" class="input-field mt-1">
+                <option value="128">AES-128 (16 bytes, 10 rounds)</option>
+                <option value="192">AES-192 (24 bytes, 12 rounds)</option>
+                <option value="256">AES-256 (32 bytes, 14 rounds)</option>
+              </select></div>
+            <div><label class="section-label">Key hex (blank = random)</label>
+              <input x-model="aesData.keyHex" class="input-field mt-1 mono" placeholder="auto-generated"/></div>
+          </div>
+          <button class="btn-primary" @click="aesEncrypt()">Encrypt</button>
+          <template x-if="result.ciphertext_hex">
+            <div class="space-y-2">
+              <div><div class="section-label">Variant</div><span class="badge badge-green" x-text="result.variant"></span></div>
+              <div><div class="section-label">Key (hex)</div><div class="result-box mono text-xs" x-text="result.key_hex"></div></div>
+              <div><div class="section-label">Blocks</div><span class="text-sm text-gray-300" x-text="result.num_blocks+' block(s) of 16 bytes'"></span></div>
+              <div><div class="section-label">Ciphertext (hex)</div><div class="result-box mono" x-text="result.ciphertext_hex"></div></div>
+            </div>
+          </template>
+          <div x-show="error" class="p-3 rounded text-sm" style="background:rgba(239,68,68,.15);color:#f87171;" x-text="error"></div>
+        </div>
+        <div x-show="aesTab==='dec'" class="card p-5 space-y-4">
+          <div><label class="section-label">Ciphertext (hex)</label>
+            <input x-model="aesData.ctHex" class="input-field mt-1 mono"/></div>
+          <div><label class="section-label">Key (hex)</label>
+            <input x-model="aesData.keyHex" class="input-field mt-1 mono"/></div>
+          <button class="btn-primary" @click="aesDecrypt()">Decrypt</button>
+          <template x-if="result.plaintext !== undefined">
+            <div>
+              <div class="section-label">Plaintext</div>
+              <div class="result-box" x-text="result.plaintext"></div>
+              <div class="text-xs text-gray-500 mt-1" x-text="'Variant: '+(result.variant||'')"></div>
+            </div>
+          </template>
+          <div x-show="error" class="p-3 rounded text-sm" style="background:rgba(239,68,68,.15);color:#f87171;" x-text="error"></div>
+        </div>
+        <div x-show="aesTab==='keys'" class="card p-5">
+          <p style="font-size:0.8rem;color:#4a4a70;margin-bottom:3px;">Encrypt something first to populate round keys.</p>
+          <template x-if="result.round_keys_hex">
+            <div>
+              <div class="section-label mb-2" x-text="(result.variant||'AES')+' — '+result.round_keys_hex.length+' Round Keys'"></div>
+              <div class="space-y-1" style="max-height:16rem;overflow-y:auto;">
+                <template x-for="(rk,i) in result.round_keys_hex" :key="i">
+                  <div class="flex items-center gap-3 text-sm">
+                    <span class="text-gray-500 w-16">Round <span x-text="i"></span></span>
+                    <span class="mono text-green-400 text-xs" x-text="rk"></span>
+                  </div>
+                </template>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+
+      <div x-show="appPage==='rsa'" x-cloak>
+        <h2 style="font-size:1.1rem;font-weight:700;color:#e2e8f0;margin-bottom:0.3rem;">RSA — Public Key Cryptography</h2>
+        <div class="flex gap-2 mb-5">
+          <button class="tab-btn" :class="{active:rsaTab==='gen'}"    @click="rsaTab='gen'">Key Gen</button>
+          <button class="tab-btn" :class="{active:rsaTab==='enc'}"    @click="rsaTab='enc'">Encrypt</button>
+          <button class="tab-btn" :class="{active:rsaTab==='dec'}"    @click="rsaTab='dec'">Decrypt</button>
+          <button class="tab-btn" :class="{active:rsaTab==='attack'}" @click="rsaTab='attack'">Attack Demo</button>
+        </div>
+        <div x-show="rsaTab==='gen'" class="card p-5 space-y-4">
+          <div><label class="section-label">Key Size</label>
+            <select x-model.number="rsaData.keyBits" class="input-field mt-1">
+              <option value="512">512-bit (fast, educational)</option>
+              <option value="1024">1024-bit (slower)</option>
+            </select></div>
+          <button class="btn-primary" @click="rsaGenerate()" :disabled="loading" x-text="loading?'Generating…':'Generate Key Pair'"></button>
+          <template x-if="rsaData.keys">
+            <div class="space-y-2 text-sm">
+              <div class="grid grid-cols-2 gap-3">
+                <div><div class="section-label">Public exponent e</div><div class="result-box mono text-xs" x-text="rsaData.keys.e"></div></div>
+                <div><div class="section-label">Modulus n</div><div class="result-box mono text-xs" x-text="rsaData.keys.n"></div></div>
+              </div>
+              <div><div class="section-label">Private exponent d</div><div class="result-box mono text-xs" x-text="rsaData.keys.d"></div></div>
+              <div class="grid grid-cols-2 gap-3">
+                <div><div class="section-label">Prime p</div><div class="result-box mono text-xs" x-text="rsaData.keys.p"></div></div>
+                <div><div class="section-label">Prime q</div><div class="result-box mono text-xs" x-text="rsaData.keys.q"></div></div>
+              </div>
+            </div>
+          </template>
+        </div>
+        <div x-show="rsaTab==='enc'" class="card p-5 space-y-4">
+          <div x-show="!rsaData.keys" class="p-3 rounded text-sm" style="background:rgba(251,191,36,.1);color:#fbbf24;">Generate a key pair first.</div>
+          <div><label class="section-label">Plaintext (any length — auto-chunked)</label>
+            <textarea x-model="rsaData.plaintext" class="input-field mt-1 h-20 resize-none"></textarea></div>
+          <button class="btn-primary" @click="rsaEncrypt()" :disabled="!rsaData.keys">Encrypt</button>
+          <template x-if="rsaData.chunks">
+            <div class="space-y-2">
+              <div><div class="section-label">Chunk size</div><span class="text-sm text-gray-300" x-text="rsaData.chunkSize+' bytes per chunk'"></span></div>
+              <div class="section-label">Ciphertext Chunks (integers)</div>
+              <template x-for="(c,i) in rsaData.chunks" :key="i">
+                <div class="result-box mono text-xs"><span class="text-gray-500">Chunk <span x-text="i+1"></span>: </span><span class="text-yellow-300" x-text="c"></span></div>
+              </template>
+            </div>
+          </template>
+        </div>
+        <div x-show="rsaTab==='dec'" class="card p-5 space-y-4">
+          <div x-show="!rsaData.chunks" class="p-3 rounded text-sm" style="background:rgba(251,191,36,.1);color:#fbbf24;">Encrypt something first.</div>
+          <template x-if="rsaData.chunks">
+            <div>
+              <div class="section-label mb-1">Stored chunks</div>
+              <template x-for="(c,i) in rsaData.chunks" :key="i">
+                <div class="result-box mono text-xs mb-1"><span class="text-gray-500">Chunk <span x-text="i+1"></span>: </span><span x-text="c"></span></div>
+              </template>
+            </div>
+          </template>
+          <button class="btn-primary" @click="rsaDecrypt()" :disabled="!rsaData.chunks">Decrypt</button>
+          <template x-if="rsaData.decrypted">
+            <div><div class="section-label">Decrypted</div><div class="result-box" x-text="rsaData.decrypted"></div></div>
+          </template>
+        </div>
+        <div x-show="rsaTab==='attack'" class="card p-5 space-y-4">
+          <div class="p-3 rounded border text-sm" style="background:rgba(239,68,68,.1);border-color:#7f1d1d;color:#fca5a5;">
+            <strong>Attack Demo:</strong> generates a tiny RSA key then uses Pollard&rsquo;s Rho to factor n and recover d. Works only for small keys.
+          </div>
+          <button class="btn-primary" @click="rsaAttack()" :disabled="loading" x-text="loading?'Running…':'Run Factorization Attack'"></button>
+          <template x-if="rsaData.attack">
+            <div class="space-y-2 text-sm">
+              <div class="grid grid-cols-2 gap-2">
+                <div><div class="section-label">n (public)</div><div class="result-box mono text-xs" x-text="rsaData.attack.n"></div></div>
+                <div><div class="section-label">e (public)</div><div class="result-box mono text-xs" x-text="rsaData.attack.e"></div></div>
+              </div>
+              <template x-if="rsaData.attack.result.success">
+                <div class="space-y-2">
+                  <div class="p-2 rounded text-sm" style="background:rgba(99,102,241,.1);color:#818cf8;">
+                    Attack succeeded in <span x-text="rsaData.attack.result.attempts"></span> attempt(s)!
+                  </div>
+                  <div class="grid grid-cols-2 gap-2">
+                    <div><div class="section-label">Found p</div><div class="result-box mono text-xs" x-text="rsaData.attack.result.p"></div></div>
+                    <div><div class="section-label">Found q</div><div class="result-box mono text-xs" x-text="rsaData.attack.result.q"></div></div>
+                  </div>
+                  <div><div class="section-label">Recovered d</div><div class="result-box mono text-xs" x-text="rsaData.attack.result.d_recovered"></div></div>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <div x-show="appPage==='ecc'" x-cloak>
+        <h2 style="font-size:1.1rem;font-weight:700;color:#e2e8f0;margin-bottom:0.3rem;">ECC — Elliptic Curve Diffie-Hellman</h2>
+        <div class="flex gap-2 mb-5">
+          <button class="tab-btn" :class="{active:eccTab==='params'}"   @click="eccTab='params'">Curve Params</button>
+          <button class="tab-btn" :class="{active:eccTab==='exchange'}" @click="eccTab='exchange'">ECDH Exchange</button>
+        </div>
+        <div x-show="eccTab==='params'" class="card p-5 space-y-4">
+          <div class="grid grid-cols-3 gap-3">
+            <div><label class="section-label">Prime p</label><input x-model.number="eccData.p" class="input-field mt-1 mono"/></div>
+            <div><label class="section-label">a</label><input x-model.number="eccData.a" class="input-field mt-1 mono"/></div>
+            <div><label class="section-label">b</label><input x-model.number="eccData.b" class="input-field mt-1 mono"/></div>
+          </div>
+          <p class="text-xs text-gray-500">Curve: y&sup2; = x&sup3; + <span x-text="eccData.a"></span>x + <span x-text="eccData.b"></span> (mod <span x-text="eccData.p"></span>)</p>
+          <button class="btn-primary" @click="eccPoints()">List All Points</button>
+          <template x-if="eccData.points">
+            <div>
+              <div class="section-label mb-2">Points (<span x-text="eccData.points.length"></span> affine + 1 at infinity)</div>
+              <div class="result-box mono text-xs">
+                <template x-for="pt in eccData.points" :key="pt[0]+','+pt[1]">
+                  <span class="inline-block mr-2 text-green-400">(<span x-text="pt[0]"></span>,<span x-text="pt[1]"></span>)</span>
+                </template>
+                <span class="text-gray-500"> + O</span>
+              </div>
+            </div>
+          </template>
+        </div>
+        <div x-show="eccTab==='exchange'" class="card p-5 space-y-4">
+          <div class="grid grid-cols-2 gap-3">
+            <div><label class="section-label">Gx</label><input x-model.number="eccData.gx" class="input-field mt-1 mono"/></div>
+            <div><label class="section-label">Gy</label><input x-model.number="eccData.gy" class="input-field mt-1 mono"/></div>
+          </div>
+          <div><label class="section-label">Order n</label><input x-model.number="eccData.n" class="input-field mt-1 mono"/></div>
+          <button class="btn-primary" @click="eccExchange()">Run ECDH Exchange</button>
+          <template x-if="eccData.exchange">
+            <div class="space-y-3 text-sm">
+              <div class="grid grid-cols-2 gap-3">
+                <div class="p-3 rounded" style="background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.2);">
+                  <div class="font-bold mb-2" style="color:#60a5fa;">Alice</div>
+                  <div><span class="text-gray-400">Private a: </span><span class="mono text-yellow-300" x-text="eccData.exchange.alice_private"></span></div>
+                  <div><span class="text-gray-400">Public A: </span><span class="mono text-green-300" x-text="JSON.stringify(eccData.exchange.alice_public)"></span></div>
+                </div>
+                <div class="p-3 rounded" style="background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.2);">
+                  <div class="font-bold mb-2" style="color:#a78bfa;">Bob</div>
+                  <div><span class="text-gray-400">Private b: </span><span class="mono text-yellow-300" x-text="eccData.exchange.bob_private"></span></div>
+                  <div><span class="text-gray-400">Public B: </span><span class="mono text-green-300" x-text="JSON.stringify(eccData.exchange.bob_public)"></span></div>
+                </div>
+              </div>
+              <div class="p-3 rounded border" :class="eccData.exchange.secrets_match?'border-green-800':'border-red-800'"
+                   :style="eccData.exchange.secrets_match?'background:rgba(74,222,128,.08)':'background:rgba(239,68,68,.08)'">
+                <div class="font-bold mb-1" :style="eccData.exchange.secrets_match?'color:#818cf8':'color:#f87171'"
+                     x-text="eccData.exchange.secrets_match?'Shared secrets match!':'Mismatch!'"></div>
+                <div class="text-xs"><span class="text-gray-400">Alice: a&times;B = </span><span class="mono text-green-300" x-text="JSON.stringify(eccData.exchange.alice_shared)"></span></div>
+                <div class="text-xs"><span class="text-gray-400">Bob: b&times;A = </span><span class="mono text-green-300" x-text="JSON.stringify(eccData.exchange.bob_shared)"></span></div>
+              </div>
+            </div>
+          </template>
+        </div>
+      </div>
+
+
+      <div x-show="appPage==='analysis'" x-cloak>
+        <h2 style="font-size:1.1rem;font-weight:700;color:#e2e8f0;margin-bottom:0.3rem;">Performance & Security Analysis</h2>
+        <div class="card p-5 mb-5 space-y-3">
+          <div>
+            <label class="section-label">Test text (leave blank to use default)</label>
+            <input x-model="perfText" class="input-field mt-1"
+                   placeholder="HELLO WORLD THIS IS A CRYPTOGRAPHY PERFORMANCE TEST MESSAGE"
+                   @keydown.enter="loadPerformance()"/>
+          </div>
+          <button class="btn-primary" :disabled="loading" @click="loadPerformance()">
+            <span x-text="loading ? 'Running benchmarks…' : 'Run Benchmark'"></span>
+          </button>
+        </div>
+        <div x-show="loading" class="card p-8 text-center text-gray-400">
+          <div class="text-2xl mb-2">&#8987;</div>Running benchmarks&hellip;
+        </div>
+        <template x-if="perfData && !loading">
+          <div class="space-y-6">
+            <div class="card p-3 text-xs" style="color:#6e7898;">
+              Tested on: <span class="mono" style="color:#a5b4fc;" x-text='"&quot;" + perfData.test_string + "&quot;"'></span>
+              &nbsp;·&nbsp; <span x-text="perfData.runs_per_algo + ' runs per algorithm'"></span>
+            </div>
+            <div class="grid grid-cols-2 gap-3" style="grid-template-columns:repeat(4,1fr);">
+              <div class="card p-4 text-center">
+                <div class="text-2xl font-bold text-white" x-text="perfData.results.length"></div>
+                <div class="text-xs text-gray-400 mt-1">Algorithms Tested</div>
+              </div>
+              <div class="card p-4 text-center">
+                <div class="text-2xl font-bold text-green-400" x-text="perfData.results.filter(r=>['Strong','Very Strong','Strongest'].includes(r.security)).length"></div>
+                <div class="text-xs text-gray-400 mt-1">Strong Algorithms</div>
+              </div>
+              <div class="card p-4 text-center">
+                <div class="text-2xl font-bold text-blue-400" x-text="perfData.runs_per_algo"></div>
+                <div class="text-xs text-gray-400 mt-1">Runs per Algorithm</div>
+              </div>
+              <div class="card p-4 text-center">
+                <div class="text-lg font-bold text-purple-400 mono" x-text="(perfData.results.find(r=>r.algorithm==='AES-128')?.time_ms.toFixed(2)||'?')+' ms'"></div>
+                <div class="text-xs text-gray-400 mt-1">AES-128 Avg Time</div>
+              </div>
+            </div>
+            <div class="card p-5">
+              <div class="section-label mb-3">Encryption Time Comparison (ms, log scale)</div>
+              <canvas id="perfChart" height="120"></canvas>
+            </div>
+            <div class="card overflow-hidden">
+              <table class="w-full text-sm">
+                <thead><tr style="border-bottom:1px solid #3b3b52;">
+                  <th class="text-left px-4 py-3 text-gray-400 font-medium">Algorithm</th>
+                  <th class="text-right px-4 py-3 text-gray-400 font-medium">Avg Time</th>
+                  <th class="text-left px-4 py-3 text-gray-400 font-medium">Key Info</th>
+                  <th class="text-left px-4 py-3 text-gray-400 font-medium">Security</th>
+                  <th class="text-left px-4 py-3 text-gray-400 font-medium">Note</th>
+                </tr></thead>
+                <tbody>
+                  <template x-for="r in perfData.results" :key="r.algorithm">
+                    <tr style="border-bottom:1px solid rgba(59,59,82,.5);">
+                      <td class="px-4 py-3 font-medium text-white" x-text="r.algorithm"></td>
+                      <td class="px-4 py-3 text-right mono text-yellow-300" x-text="r.time_ms+' ms'"></td>
+                      <td class="px-4 py-3 text-gray-300 text-xs" x-text="r.key_info"></td>
+                      <td class="px-4 py-3">
+                        <span class="badge"
+                          :class="{'badge-green':['Strong','Very Strong','Strongest'].includes(r.security),'badge-yellow':['Educational','Weak (demo)','Demo only','Moderate (use 2048+)'].includes(r.security),'badge-red':['Very Weak','Weak','Demo only'].includes(r.security),'badge-blue':r.security==='Moderate'}"
+                          x-text="r.security"></span>
+                      </td>
+                      <td class="px-4 py-3 text-gray-400 text-xs" x-text="r.security_note"></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+            <div class="grid grid-cols-1 gap-4" style="grid-template-columns:1fr 1fr;">
+              <div class="card p-4">
+                <div class="font-semibold text-white mb-2">Security Ranking</div>
+                <ol class="text-sm text-gray-300 space-y-1 list-decimal list-inside">
+                  <li>AES-256 — 256-bit key, strongest symmetric</li>
+                  <li>AES-192 — 192-bit key, excellent margin</li>
+                  <li>AES-128 — 128-bit key, industry standard</li>
+                  <li>RSA-2048+ — use for key exchange only</li>
+                  <li>ECC P-256 — ~RSA-3072, smaller keys</li>
+                  <li style="color:#f87171;">DES — 56-bit effective, broken 1999</li>
+                  <li style="color:#f87171;">Double Transposition — freq. analysis</li>
+                  <li style="color:#f87171;">Substitution — trivially broken</li>
+                </ol>
+              </div>
+              <div class="card p-4">
+                <div class="font-semibold text-white mb-2">Performance Insights</div>
+                <ul class="text-sm text-gray-300 space-y-2">
+                  <li>&#128994; <strong>AES is fast</strong> — fixed 16-byte blocks, simple table lookups.</li>
+                  <li>&#128993; <strong>Classical ciphers</strong> are fast but trivially broken.</li>
+                  <li>&#128308; <strong>RSA key gen</strong> is slowest — prime search dominates.</li>
+                  <li>&#9889; <strong>ECC ECDH</strong> fast on demo curve; real curves are slower but faster than equivalent RSA.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <!-- ═══ ANALYSIS SUITE ═══ -->
+      <div x-show="appPage==='analysis-suite'" x-cloak>
+        <h2 style="font-size:1.1rem;font-weight:700;color:#e2e8f0;margin-bottom:0.3rem;">Analysis Suite</h2>
+        <p style="font-size:0.82rem;color:#6e7898;margin-bottom:1.2rem;">Timing analysis and brute-force demo across all algorithms.</p>
+
+        <div class="flex gap-2 mb-5">
+          <button class="tab-btn" :class="{active: suiteTab==='timing'}"      @click="suiteTab='timing'">Timing Analysis</button>
+          <button class="tab-btn" :class="{active: suiteTab==='bruteforce'}"  @click="suiteTab='bruteforce'">Brute Force</button>
+        </div>
+
+        <!-- Timing tab -->
+        <div x-show="suiteTab==='timing'">
+          <div class="card p-5 space-y-4">
+            <div>
+              <label class="section-label">Plaintext to test</label>
+              <input x-model="suite.plaintext" class="input-field mt-1" placeholder="e.g. HELLO WORLD"/>
+            </div>
+            <button class="btn-primary" :disabled="loading" @click="runTiming()">
+              <span x-text="loading ? 'Running… (RSA may take a moment)' : 'Run Timing Analysis'"></span>
+            </button>
+          </div>
+
+          <template x-if="suite.timingResults">
+            <div class="mt-4 space-y-3">
+              <template x-for="r in suite.timingResults" :key="r.name">
+                <div class="card p-4">
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="font-semibold text-sm" style="color:#c7d2fe;" x-text="r.name"></span>
+                    <span class="badge"
+                      :class="r.roundtrip_ok === true ? 'badge-green' : r.roundtrip_ok === false ? 'badge-red' : 'badge-blue'"
+                      x-text="r.roundtrip_ok === true ? 'Roundtrip OK' : r.roundtrip_ok === false ? 'Roundtrip FAIL' : 'N/A'">
+                    </span>
+                  </div>
+                  <template x-if="r.error">
+                    <p class="text-xs" style="color:#f87171;" x-text="'Error: ' + r.error"></p>
+                  </template>
+                  <template x-if="!r.error && r.can_encrypt">
+                    <div class="grid grid-cols-2 gap-2 text-xs" style="color:#94a3b8;">
+                      <div>Encrypt: <span class="mono" style="color:#a5b4fc;" x-text="r.enc_ms !== null ? r.enc_ms.toFixed(3)+' ms' : 'N/A'"></span></div>
+                      <div>Decrypt: <span class="mono" style="color:#a5b4fc;" x-text="r.dec_ms !== null ? r.dec_ms.toFixed(3)+' ms' : 'N/A'"></span></div>
+                    </div>
+                  </template>
+                  <template x-if="!r.can_encrypt">
+                    <p class="text-xs mt-1" style="color:#6e7898;" x-text="r.note"></p>
+                  </template>
+                  <p class="text-xs mt-1" style="color:#4a4a72;" x-text="r.note" x-show="r.can_encrypt && r.note"></p>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+
+        <!-- Brute Force tab -->
+        <div x-show="suiteTab==='bruteforce'">
+          <div class="card p-5 space-y-4">
+            <p class="text-xs" style="color:#6e7898;">
+              Both limits apply at the same time — the search stops when either is reached first.
+              Substitution always uses 1 attempt (frequency analysis). Double Transposition tries key
+              permutations up to the length your attempt count allows.
+            </p>
+            <div>
+              <label class="section-label">Ciphertext to attack</label>
+              <input x-model="suite.ciphertext" class="input-field mt-1 mono" placeholder="e.g. ITSSG VGKSR"/>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="section-label">Time limit (seconds)</label>
+                <input x-model.number="suite.timeout" type="number" min="1" max="300"
+                       class="input-field mt-1 mono" placeholder="60"/>
+                <p class="text-xs mt-1" style="color:#4a4a72;">1 – 300 s, default 60</p>
+              </div>
+              <div>
+                <label class="section-label">Max key attempts</label>
+                <input x-model.number="suite.maxAttempts" type="number" min="1" max="1000000"
+                       class="input-field mt-1 mono" placeholder="616"/>
+                <p class="text-xs mt-1" style="color:#4a4a72;">616 = lengths 2–4 · 15 016 = lengths 2–5</p>
+              </div>
+            </div>
+            <button class="btn-primary" :disabled="loading" @click="runBruteForce()">
+              <span x-text="loading ? 'Running…' : 'Run Brute Force'"></span>
+            </button>
+          </div>
+
+          <template x-if="suite.bruteResults">
+            <div class="mt-4 space-y-3">
+              <template x-for="r in suite.bruteResults" :key="r.algorithm">
+                <div class="card p-4">
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="font-semibold text-sm" style="color:#c7d2fe;" x-text="r.algorithm"></span>
+                    <span class="badge"
+                      :class="r.found ? 'badge-green' : r.attempted ? 'badge-yellow' : 'badge-blue'"
+                      x-text="r.found ? 'Match found' : r.attempted ? 'No match' : 'Skipped'">
+                    </span>
+                  </div>
+                  <div class="text-xs space-y-1" style="color:#94a3b8;">
+                    <div>Keys tried: <span class="mono" style="color:#a5b4fc;" x-text="r.keys_tried.toLocaleString()"></span>
+                         &nbsp;/&nbsp; Key space: <span class="mono" style="color:#6b7280;" x-text="r.total_key_space"></span></div>
+                    <template x-if="r.elapsed_ms !== null">
+                      <div>Time: <span class="mono" style="color:#a5b4fc;" x-text="r.elapsed_ms.toFixed(1)+' ms'"></span></div>
+                    </template>
+                    <div style="color:#4a4a72;" x-text="r.note"></div>
+                    <template x-if="r.guess">
+                      <div class="result-box mt-2" style="max-height:80px;" x-text="r.guess"></div>
+                    </template>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+
+        <div x-show="error" class="mt-3 p-3 rounded text-sm" style="background:rgba(239,68,68,.15);color:#f87171;" x-text="error"></div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+
+<script>
+const PLAIN_TEXT = "WELCOME TO CRYPTOGRAPHY PROJECT";
+
+const ALGOS = {
+  substitution: {
+    short: "SUB", label: "Substitution", icon: "",
+    color: "#f59e0b", bg: "#451a03",
+    ciphertext: "VTSEGDT ZG EKNHZGUKQHIN HKGPTEZ",
+    note: "Key: QWERTYUIOPASDFGHJKLZXCVBNM",
+    speed: 55,
+  },
+  transposition: {
+    short: "D-TRANS", label: "Dbl Transposition", icon: "",
+    color: "#10b981", bg: "#022c22",
+    ciphertext: "CEGWREREATOOJOTCHOYRCMPYTPLP",
+    note: "Keys: [3,1,4,2] × [2,4,1,3]",
+    speed: 55,
+  },
+  des: {
+    short: "DES", label: "DES", icon: "",
+    color: "#ef4444", bg: "#450a0a",
+    ciphertext: "4755A17554A561B0 594BD80157AF0DB0 4052A3774CA77FB2 4A4CB35D53B262B9",
+    note: "Key: DEADBEEF01234567 (64-bit, 8 rounds)",
+    speed: 30,
+  },
+  aes128: {
+    short: "AES-128", label: "AES-128", icon: "",
+    color: "#818cf8", bg: "#1e1b4b",
+    ciphertext: "ACE03674458EED1E 2DAC4D38C9CA8294 8693C1B0364D77BE 6B7589C4494DCBD5",
+    note: "Key: DEADBEEF×4 (128-bit, 10 rounds)",
+    speed: 28,
+  },
+  aes192: {
+    short: "AES-192", label: "AES-192", icon: "",
+    color: "#c084fc", bg: "#3b0764",
+    ciphertext: "E9F065D7C13573A0 62C9B8B7FAB5D20A 3E5B8A1C9D4F2E67 B31C0E9A5F7D4821",
+    note: "Key: DEADBEEF×6 (192-bit, 12 rounds)",
+    speed: 28,
+  },
+  aes256: {
+    short: "AES-256", label: "AES-256", icon: "",
+    color: "#a78bfa", bg: "#2e1065",
+    ciphertext: "C6A786FDE2766C30 5372622CFF99B831 FA5F7F2FBD1D76E3 D29501C23562BBED",
+    note: "Key: DEADBEEF×8 (256-bit, 14 rounds)",
+    speed: 28,
+  },
+  rsa: {
+    short: "RSA", label: "RSA", icon: "",
+    color: "#ec4899", bg: "#500724",
+    ciphertext: "206459203  |  707885371  |  1856868028",
+    note: "n=3559904303, e=65537 (demo 32-bit key)",
+    speed: 40,
+  },
+};
+
+function initMatrix() {
+  const canvas = document.getElementById('matrixCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const resize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
+  resize();
+  window.addEventListener('resize', resize);
+
+  const chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ!@#$^&*+-=';
+  const cols = Math.floor(canvas.width / 22);
+  const drops = Array.from({length: cols}, () => Math.floor(Math.random() * -50));
+
+  setInterval(() => {
+    ctx.fillStyle = 'rgba(10, 10, 20, 0.07)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.font = '13px monospace';
+    drops.forEach((y, i) => {
+      const isHead = y === drops[i];
+      ctx.fillStyle = isHead ? '#ffffff22' : '#1a4a1a';
+      const ch = chars[Math.floor(Math.random() * chars.length)];
+      ctx.fillText(ch, i * 22, y * 22);
+      if (y * 22 > canvas.height && Math.random() > 0.97) drops[i] = 0;
+      drops[i]++;
+    });
+  }, 45);
+}
+
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function cryptoApp() {
+  return {
+
+
+    view: 'home',   
+    appPage: 'substitution',
+
+    selectedAlgo: 'aes128',
+    displayText: '',
+    phase: 'plain',       
+    showBadge: false,
+    animGen: 0,           
+
+    get ALGOS() { return ALGOS; },
+    get currentAlgo() { return ALGOS[this.selectedAlgo]; },
+    get isCipher() { return this.phase === 'typing-enc' || this.phase === 'encrypted'; },
+
+    // ── App state ──
+    subTab: 'enc', transTab: 'enc', desTab: 'enc',
+    aesTab: 'enc', rsaTab: 'gen',  eccTab: 'params',
+    suiteTab: 'timing',
+    perfText: '',
+    result: {}, error: '', loading: false, perfData: null,
+    sub:     { plaintext: '', ciphertext: '', key: '' },
+    trans:   { text: '', key1: '3 1 4 2', key2: '2 4 1 3' },
+    des:     { plaintext: '', keyHex: '', ctHex: '' },
+    aesData: { plaintext: '', keySize: '128', keyHex: '', ctHex: '' },
+    rsaData: { keyBits: 512, keys: null, plaintext: '', chunks: null, chunkSize: 0, decrypted: null, attack: null },
+    eccData: { p: 17, a: 2, b: 2, gx: 5, gy: 1, n: 19, points: null, exchange: null },
+    suite:   { plaintext: '', ciphertext: '', timeout: 60, maxAttempts: 616, timingResults: null, bruteResults: null },
+
+    navItems: [
+      { id: 'substitution', label: 'Substitution', icon: '' },
+      { id: 'transposition', label: 'Transposition', icon: '' },
+      { id: 'des',           label: 'DES',           icon: '' },
+      { id: 'aes',           label: 'AES',           icon: '' },
+      { id: 'rsa',           label: 'RSA',           icon: '' },
+      { id: 'ecc',           label: 'ECC',           icon: '' },
+    ],
+
+    // ── Init ──
+    init() {
+      initMatrix();
+      this.startAnimation();
+    },
+
+
+    selectAlgo(key) {
+      if (key === this.selectedAlgo) return;
+      this.selectedAlgo = key;
+      this.animGen++;       
+      this.displayText = '';
+      this.showBadge = false;
+      this.phase = 'plain';
+      this.startAnimation();
+    },
+
+
+    async startAnimation() {
+      const gen = this.animGen;
+
+
+      this.phase = 'plain';
+      this.displayText = '';
+      for (const ch of PLAIN_TEXT) {
+        await sleep(55);
+        if (gen !== this.animGen) return;
+        this.displayText += ch;
+      }
+
+      await sleep(1600);
+      if (gen !== this.animGen) return;
+
+
+      while (this.displayText.length > 0) {
+        await sleep(20);
+        if (gen !== this.animGen) return;
+        this.displayText = this.displayText.slice(0, -1);
+      }
+
+      await sleep(280);
+      if (gen !== this.animGen) return;
+      this.showBadge = true;
+      this.phase = 'typing-enc';
+      await sleep(220);
+      if (gen !== this.animGen) return;
+
+      const algo = ALGOS[this.selectedAlgo];
+      for (const ch of algo.ciphertext) {
+        await sleep(algo.speed);
+        if (gen !== this.animGen) return;
+        this.displayText += ch;
+      }
+
+      this.phase = 'encrypted';
+      await sleep(2600);
+      if (gen !== this.animGen) return;
+
+      this.phase = 'typing-enc';   
+      while (this.displayText.length > 0) {
+        await sleep(16);
+        if (gen !== this.animGen) return;
+        this.displayText = this.displayText.slice(0, -1);
+      }
+
+      await sleep(200);
+      if (gen !== this.animGen) return;
+      this.showBadge = false;
+      this.phase = 'plain';
+      await sleep(150);
+      if (gen !== this.animGen) return;
+
+      this.startAnimation();
+    },
+
+    enterTool() {
+      this.animGen++;  
+      this.view = 'app';
+    },
+
+    clearResult() { this.result = {}; this.error = ''; },
+
+    async api(path, body = null) {
+      this.error = '';
+      const opts = body
+        ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+        : { method: 'GET' };
+      const res = await fetch('/api/' + path, opts);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || 'Request failed');
+      return data;
+    },
+
+
+    async subEncrypt() {
+      try { this.result = await this.api('substitution/encrypt', { plaintext: this.sub.plaintext, key: this.sub.key || null }); }
+      catch(e) { this.error = e.message; }
+    },
+    async subDecrypt() {
+      try { this.result = await this.api('substitution/decrypt', { ciphertext: this.sub.ciphertext, key: this.sub.key }); }
+      catch(e) { this.error = e.message; }
+    },
+    async subAnalyze() {
+      try { this.result = await this.api('substitution/analyze', { ciphertext: this.sub.ciphertext }); }
+      catch(e) { this.error = e.message; }
+    },
+
+    async transEncrypt() {
+      try { this.result = await this.api('transposition/encrypt', { text: this.trans.text, key1: this.trans.key1, key2: this.trans.key2 }); }
+      catch(e) { this.error = e.message; }
+    },
+    async transDecrypt() {
+      try { this.result = await this.api('transposition/decrypt', { ciphertext: this.trans.text, key1: this.trans.key1, key2: this.trans.key2 }); }
+      catch(e) { this.error = e.message; }
+    },
+
+    async desEncrypt() {
+      try {
+        this.result = await this.api('des/encrypt', { plaintext: this.des.plaintext, key_hex: this.des.keyHex || null });
+        this.des.keyHex = this.result.key_hex;
+        this.des.ctHex  = this.result.ciphertext_hex;
+      } catch(e) { this.error = e.message; }
+    },
+    async desDecrypt() {
+      try { this.result = await this.api('des/decrypt', { ciphertext_hex: this.des.ctHex, key_hex: this.des.keyHex }); }
+      catch(e) { this.error = e.message; }
+    },
+
+
+    async aesEncrypt() {
+      try {
+        this.result = await this.api('aes/encrypt', { plaintext: this.aesData.plaintext, key_size: parseInt(this.aesData.keySize), key_hex: this.aesData.keyHex || null });
+        this.aesData.keyHex = this.result.key_hex;
+        this.aesData.ctHex  = this.result.ciphertext_hex;
+      } catch(e) { this.error = e.message; }
+    },
+    async aesDecrypt() {
+      try { this.result = await this.api('aes/decrypt', { ciphertext_hex: this.aesData.ctHex, key_hex: this.aesData.keyHex }); }
+      catch(e) { this.error = e.message; }
+    },
+
+    async rsaGenerate() {
+      this.loading = true;
+      try { this.rsaData.keys = await this.api('rsa/generate', { key_bits: this.rsaData.keyBits }); this.rsaData.chunks = null; this.rsaData.decrypted = null; }
+      catch(e) { this.error = e.message; } finally { this.loading = false; }
+    },
+    async rsaEncrypt() {
+      if (!this.rsaData.keys) return;
+      try {
+        const r = await this.api('rsa/encrypt', { plaintext: this.rsaData.plaintext, e: this.rsaData.keys.e, n: this.rsaData.keys.n });
+        this.rsaData.chunks = r.chunks; this.rsaData.chunkSize = r.chunk_size_bytes; this.rsaData.decrypted = null;
+      } catch(e) { this.error = e.message; }
+    },
+    async rsaDecrypt() {
+      if (!this.rsaData.chunks) return;
+      try { const r = await this.api('rsa/decrypt', { chunks: this.rsaData.chunks, d: this.rsaData.keys.d, n: this.rsaData.keys.n }); this.rsaData.decrypted = r.plaintext; }
+      catch(e) { this.error = e.message; }
+    },
+    async rsaAttack() {
+      this.loading = true;
+      try {
+        const dk = await this.api('rsa/generate', { key_bits: 32 });
+        const ar = await this.api('rsa/attack', { n: dk.n, e: dk.e });
+        this.rsaData.attack = { n: dk.n, e: dk.e, result: ar };
+      } catch(e) { this.error = e.message; } finally { this.loading = false; }
+    },
+
+    async eccPoints() {
+      try { const r = await this.api('ecc/points', { p: this.eccData.p, a: this.eccData.a, b: this.eccData.b }); this.eccData.points = r.points; }
+      catch(e) { this.error = e.message; }
+    },
+    async eccExchange() {
+      try { this.eccData.exchange = await this.api('ecc/exchange', { p: this.eccData.p, a: this.eccData.a, b: this.eccData.b, gx: this.eccData.gx, gy: this.eccData.gy, n: this.eccData.n }); }
+      catch(e) { this.error = e.message; }
+    },
+
+    async runTiming() {
+      if (!this.suite.plaintext.trim()) { this.error = 'Please enter a plaintext.'; return; }
+      this.loading = true; this.error = ''; this.suite.timingResults = null;
+      try {
+        const r = await this.api('analysis/timing', { plaintext: this.suite.plaintext });
+        this.suite.timingResults = r.results;
+      } catch(e) { this.error = e.message; } finally { this.loading = false; }
+    },
+
+    async runBruteForce() {
+      if (!this.suite.ciphertext.trim()) { this.error = 'Please enter a ciphertext.'; return; }
+      this.loading = true; this.error = ''; this.suite.bruteResults = null;
+      try {
+        const r = await this.api('analysis/brute_force', {
+          ciphertext:      this.suite.ciphertext,
+          timeout_seconds: this.suite.timeout     || 60,
+          max_attempts:    this.suite.maxAttempts || 616,
+        });
+        this.suite.bruteResults = r.results;
+      } catch(e) { this.error = e.message; } finally { this.loading = false; }
+    },
+
+    async loadPerformance() {
+      this.loading = true; this.perfData = null; this.error = '';
+      const text = this.perfText.trim();
+      const url  = text ? 'performance?plaintext=' + encodeURIComponent(text) : 'performance';
+      try { this.perfData = await this.api(url); setTimeout(() => this.drawChart(), 120); }
+      catch(e) { this.error = e.message; } finally { this.loading = false; }
+    },
+    drawChart() {
+      const canvas = document.getElementById('perfChart');
+      if (!canvas || !this.perfData) return;
+      const colors = this.perfData.results.map(r =>
+        ['Strong','Very Strong','Strongest'].includes(r.security) ? '#4ade80' :
+        ['Educational','Weak (demo)','Demo only','Moderate (use 2048+)'].includes(r.security) ? '#fbbf24' : '#f87171'
+      );
+      if (window._perfChart) window._perfChart.destroy();
+      window._perfChart = new Chart(canvas.getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: this.perfData.results.map(r => r.algorithm),
+          datasets: [{ label: 'Avg Time (ms)', data: this.perfData.results.map(r => r.time_ms), backgroundColor: colors, borderRadius: 6 }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.parsed.y.toFixed(4)+' ms' } } },
+          scales: {
+            x: { ticks: { color: '#94a3b8' }, grid: { color: '#3b3b52' } },
+            y: { type: 'logarithmic', ticks: { color: '#94a3b8', callback: v => v+' ms' }, grid: { color: '#3b3b52' } }
+          }
+        }
+      });
+    },
+  };
+}
+</script>
+
+</body>
+</html>

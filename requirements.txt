@@ -1,0 +1,5 @@
+# Install:  pip install -r requirements.txt
+# Docker:   handled automatically by the Dockerfile
+#
+fastapi==0.115.0
+uvicorn==0.30.6
