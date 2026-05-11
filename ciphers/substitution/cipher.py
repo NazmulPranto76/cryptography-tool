@@ -38,7 +38,6 @@ def frequency_analysis(ciphertext):
     # Input:  "ITSSG"
     # Output: {'freq': {'I':1,'T':1,'S':2,'G':1}, 'total': 5, 'mapping': {...}, 'guessed_plaintext': "..."}
 
-    # Counting each letter in the ciphertext, so that we can guess which letters they might be in English
     freq = {}  
     total = 0
     for ch in ciphertext.upper():

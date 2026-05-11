@@ -651,11 +651,32 @@
           <button class="tab-btn" :class="{active:rsaTab==='attack'}" @click="rsaTab='attack'">Attack Demo</button>
         </div>
         <div x-show="rsaTab==='gen'" class="card p-5 space-y-4">
+          <div x-show="error" class="p-3 rounded text-sm" style="background:rgba(239,68,68,.15);color:#f87171;" x-text="error"></div>
           <div><label class="section-label">Key Size</label>
             <select x-model.number="rsaData.keyBits" class="input-field mt-1">
-              <option value="512">512-bit (fast, educational)</option>
-              <option value="1024">1024-bit (slower)</option>
+              <option value="512">512-bit</option>
+              <option value="1024">1024-bit</option>
+              <option value="2048">2048-bit</option>
             </select></div>
+          <!-- Optional custom parameters — leave blank to use defaults -->
+          <div class="grid grid-cols-3 gap-3">
+            <div>
+              <label class="section-label">Public exponent e</label>
+              <input x-model="rsaData.customE" class="input-field mt-1" placeholder="Default: 65537" />
+            </div>
+            <div>
+              <label class="section-label">Prime p <span class="text-gray-500 font-normal">(optional)</span></label>
+              <input x-model="rsaData.customP" class="input-field mt-1" placeholder="Optional prime p" />
+            </div>
+            <div>
+              <label class="section-label">Prime q <span class="text-gray-500 font-normal">(optional)</span></label>
+              <input x-model="rsaData.customQ" class="input-field mt-1" placeholder="Optional prime q" />
+            </div>
+          </div>
+          <p class="text-xs" style="color:#94a3b8;">
+            Leave all blank to auto-generate. Provide <strong>p</strong> and <strong>q</strong> to use your own primes.
+            Provide only <strong>e</strong> to use a custom public exponent with auto-generated primes.
+          </p>
           <button class="btn-primary" @click="rsaGenerate()" :disabled="loading" x-text="loading?'Generating…':'Generate Key Pair'"></button>
           <template x-if="rsaData.keys">
             <div class="space-y-2 text-sm">
@@ -672,11 +693,12 @@
           </template>
         </div>
         <div x-show="rsaTab==='enc'" class="card p-5 space-y-4">
-          <div x-show="!rsaData.keys" class="p-3 rounded text-sm" style="background:rgba(251,191,36,.1);color:#fbbf24;">Generate a key pair first.</div>
+          <div x-show="!rsaData.keys" class="p-3 rounded text-sm" style="background:rgba(251,191,36,.1);color:#fbbf24;">Generate a key pair first (go to the Key Gen tab).</div>
+          <div x-show="error" class="p-3 rounded text-sm" style="background:rgba(239,68,68,.15);color:#f87171;" x-text="error"></div>
           <div><label class="section-label">Plaintext (any length — auto-chunked)</label>
-            <textarea x-model="rsaData.plaintext" class="input-field mt-1 h-20 resize-none"></textarea></div>
+            <textarea x-model="rsaData.plaintext" class="input-field mt-1 h-20 resize-none" placeholder="Enter text to encrypt..."></textarea></div>
           <button class="btn-primary" @click="rsaEncrypt()" :disabled="!rsaData.keys">Encrypt</button>
-          <template x-if="rsaData.chunks">
+          <template x-if="rsaData.chunks && rsaData.chunks.length > 0">
             <div class="space-y-2">
               <div><div class="section-label">Chunk size</div><span class="text-sm text-gray-300" x-text="rsaData.chunkSize+' bytes per chunk'"></span></div>
               <div class="section-label">Ciphertext Chunks (integers)</div>
@@ -688,6 +710,7 @@
         </div>
         <div x-show="rsaTab==='dec'" class="card p-5 space-y-4">
           <div x-show="!rsaData.chunks" class="p-3 rounded text-sm" style="background:rgba(251,191,36,.1);color:#fbbf24;">Encrypt something first.</div>
+          <div x-show="error" class="p-3 rounded text-sm" style="background:rgba(239,68,68,.15);color:#f87171;" x-text="error"></div>
           <template x-if="rsaData.chunks">
             <div>
               <div class="section-label mb-1">Stored chunks</div>
@@ -1118,7 +1141,7 @@ function cryptoApp() {
     trans:   { text: '', key1: '3 1 4 2', key2: '2 4 1 3' },
     des:     { plaintext: '', keyHex: '', ctHex: '' },
     aesData: { plaintext: '', keySize: '128', keyHex: '', ctHex: '' },
-    rsaData: { keyBits: 512, keys: null, plaintext: '', chunks: null, chunkSize: 0, decrypted: null, attack: null },
+    rsaData: { keyBits: 512, keys: null, plaintext: '', chunks: null, chunkSize: 0, decrypted: null, attack: null, customE: '', customP: '', customQ: '', encOverrideN: '', encOverrideE: '', decOverrideN: '', decOverrideD: '' },
     eccData: { p: 17, a: 2, b: 2, gx: 5, gy: 1, n: 19, points: null, exchange: null },
     suite:   { plaintext: '', ciphertext: '', timeout: 60, maxAttempts: 616, timingResults: null, bruteResults: null },
 
@@ -1274,20 +1297,28 @@ function cryptoApp() {
 
     async rsaGenerate() {
       this.loading = true;
-      try { this.rsaData.keys = await this.api('rsa/generate', { key_bits: this.rsaData.keyBits }); this.rsaData.chunks = null; this.rsaData.decrypted = null; }
-      catch(e) { this.error = e.message; } finally { this.loading = false; }
+      try {
+        const payload = { key_bits: this.rsaData.keyBits };
+        if (this.rsaData.customE) payload.custom_e = this.rsaData.customE;
+        if (this.rsaData.customP) payload.custom_p = this.rsaData.customP;
+        if (this.rsaData.customQ) payload.custom_q = this.rsaData.customQ;
+        this.rsaData.keys = await this.api('rsa/generate', payload);
+        this.rsaData.chunks = null;
+        this.rsaData.decrypted = null;
+      } catch(e) { this.error = e.message; } finally { this.loading = false; }
     },
     async rsaEncrypt() {
-      if (!this.rsaData.keys) return;
+      if (!this.rsaData.keys) { this.error = 'Generate a key pair first.'; return; }
+      if (!this.rsaData.plaintext) { this.error = 'Enter some plaintext to encrypt.'; return; }
       try {
         const r = await this.api('rsa/encrypt', { plaintext: this.rsaData.plaintext, e: this.rsaData.keys.e, n: this.rsaData.keys.n });
         this.rsaData.chunks = r.chunks; this.rsaData.chunkSize = r.chunk_size_bytes; this.rsaData.decrypted = null;
-      } catch(e) { this.error = e.message; }
+      } catch(err) { this.error = err.message; }
     },
     async rsaDecrypt() {
       if (!this.rsaData.chunks) return;
       try { const r = await this.api('rsa/decrypt', { chunks: this.rsaData.chunks, d: this.rsaData.keys.d, n: this.rsaData.keys.n }); this.rsaData.decrypted = r.plaintext; }
-      catch(e) { this.error = e.message; }
+      catch(err) { this.error = err.message; }
     },
     async rsaAttack() {
       this.loading = true;

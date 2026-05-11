@@ -1,5 +1,5 @@
 # ciphers/des/menu.py
-# CLI Menu for Simplified DES — now handles any-length plaintext (ECB mode).
+# CLI Menu for Real DES — 16-round Feistel cipher with standard tables.
 
 from utils.display_helpers import print_separator
 from utils.bit_helpers import bits_to_bytes
@@ -7,21 +7,20 @@ from ciphers.des import cipher as des_cipher
 
 
 def run_menu():
-    """Show the Simplified DES sub-menu and handle user choices."""
-    print_separator("Simplified DES (Educational — 8-Round Feistel, ECB Mode)")
-    print("  NOTE: Simplified version for learning — NOT production DES.")
-    print("  Block: 64 bits (8 bytes) | Key: 64 bits | Rounds: 8")
-    print("  Any-length input: split into 8-byte blocks, each encrypted independently.\n")
+    print_separator("DES (Data Encryption Standard — Educational)")
+    print("  NOTE: Real DES structure — IP, 16 Feistel rounds, S-boxes, FP.")
+    print("  DES is NOT secure for real use (56-bit key is too short).")
+    print("  Block: 64 bits (8 bytes) | Key: 64 bits (56 effective) | Rounds: 16\n")
 
-    key_bytes = des_cipher.generate_key()
+    key_bytes  = des_cipher.generate_key()
     round_keys = des_cipher.generate_round_keys(key_bytes)
     print(f"  Auto-generated key (hex): {key_bytes.hex().upper()}")
-    print(f"  {len(round_keys)} round keys generated.\n")
+    print(f"  {len(round_keys)} round keys generated (48 bits each).\n")
 
     last_ct_hex = None
 
     while True:
-        print("\n  --- Simplified DES Options ---")
+        print("\n  --- DES Options ---")
         print("  1. Encrypt  (any length plaintext)")
         print("  2. Decrypt")
         print("  3. Show All Round Keys")
@@ -50,9 +49,9 @@ def run_menu():
                 print(f"  Error: {e}")
 
         elif choice == '3':
-            print("\n  All 8 Round Keys (hex):")
+            print(f"\n  All {len(round_keys)} Round Keys (48 bits = 6 bytes each, shown as hex):")
             for i, rk in enumerate(round_keys):
-                print(f"    Round {i + 1}: {bits_to_bytes(rk).hex().upper()}")
+                print(f"    Round {i + 1:2d}: {bits_to_bytes(rk).hex().upper()}")
 
         elif choice == '0':
             break

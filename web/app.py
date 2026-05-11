@@ -3,6 +3,7 @@
 import sys
 import os
 import time
+import math
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
@@ -11,6 +12,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from typing import Optional, List
+
+from utils.bit_helpers import mod_inverse
 
 from ciphers.substitution  import cipher as sub
 from ciphers.double_transposition import cipher as dt
@@ -72,7 +75,10 @@ class AESDecryptRequest(BaseModel):
     key_hex: str
 
 class RSAGenerateRequest(BaseModel):
-    key_bits: int
+    key_bits: int = 512
+    custom_e: Optional[str] = None   # optional public exponent (default 65537)
+    custom_p: Optional[str] = None   # optional prime p
+    custom_q: Optional[str] = None   # optional prime q
 
 
 class RSAEncryptRequest(BaseModel):
@@ -303,21 +309,75 @@ def aes_decrypt(req: AESDecryptRequest):
 @app.post("/api/rsa/generate")
 def rsa_generate(req: RSAGenerateRequest):
     bits_per_prime = req.key_bits // 2
-
     if bits_per_prime < 16:
         raise HTTPException(400, "key_bits must be at least 32.")
 
-    keys = rsa.generate_keys(bits=bits_per_prime)
+    # Normalise optional string fields — treat empty string same as None
+    custom_e = req.custom_e.strip() if req.custom_e and req.custom_e.strip() else None
+    custom_p = req.custom_p.strip() if req.custom_p and req.custom_p.strip() else None
+    custom_q = req.custom_q.strip() if req.custom_q and req.custom_q.strip() else None
 
-    return {
-        "e": str(keys["e"]),
-        "d": str(keys["d"]),
-        "n": str(keys["n"]),
-        "p": str(keys["p"]),
-        "q": str(keys["q"]),
-        "phi": str(keys["phi"]),
-        "key_bits": keys["key_bits"],
-    }
+    try:
+        # ── Case A: user provided both p and q ────────────────────────────────
+        if custom_p and custom_q:
+            p = int(custom_p)
+            q = int(custom_q)
+            if p < 3 or not rsa._miller_rabin(p):
+                raise HTTPException(400, f"{p} is not prime. Enter a valid prime number for p.")
+            if q < 3 or not rsa._miller_rabin(q):
+                raise HTTPException(400, f"{q} is not prime. Enter a valid prime number for q.")
+            if p == q:
+                raise HTTPException(400, "p and q must be different primes.")
+            n   = p * q
+            phi = (p - 1) * (q - 1)
+            e   = int(custom_e) if custom_e else 65537
+            if e < 3:
+                raise HTTPException(400, f"e must be at least 3. Got {e}.")
+            if math.gcd(e, phi) != 1:
+                raise HTTPException(400,
+                    f"e = {e} is not valid: gcd(e, phi(n)) must equal 1. "
+                    f"Try e = 65537, or choose different primes.")
+            d   = mod_inverse(e, phi)
+            result = {'e': e, 'd': d, 'n': n, 'p': p, 'q': q, 'phi': phi}
+
+        # ── Case B: user provided only e — generate p and q automatically ─────
+        elif custom_e:
+            e = int(custom_e)
+            if e < 3 or e % 2 == 0:
+                raise HTTPException(400,
+                    f"e must be an odd integer >= 3 (common values: 3, 17, 65537). Got {e}.")
+            # Try up to 10 key pairs until gcd(e, phi) = 1
+            for _ in range(10):
+                keys = rsa.generate_keys(bits=bits_per_prime)
+                p, q = keys['p'], keys['q']
+                phi  = (p - 1) * (q - 1)
+                if math.gcd(e, phi) == 1:
+                    d = mod_inverse(e, phi)
+                    result = {'e': e, 'd': d, 'n': p * q, 'p': p, 'q': q, 'phi': phi}
+                    break
+            else:
+                raise HTTPException(400,
+                    f"e = {e} is not coprime with the generated phi after 10 attempts. "
+                    f"Try e = 65537 or a different value.")
+
+        # ── Case C: default — generate everything automatically ───────────────
+        else:
+            result = rsa.generate_keys(bits=bits_per_prime)
+
+        return {
+            "e":       str(result["e"]),
+            "d":       str(result["d"]),
+            "n":       str(result["n"]),
+            "p":       str(result["p"]),
+            "q":       str(result["q"]),
+            "phi":     str(result["phi"]),
+            "key_bits": result.get("key_bits", result["n"].bit_length()),
+        }
+
+    except HTTPException:
+        raise
+    except ValueError as err:
+        raise HTTPException(400, str(err))
 
 
 @app.post("/api/rsa/encrypt")
@@ -329,7 +389,9 @@ def rsa_encrypt_route(req: RSAEncryptRequest):
         result = rsa.encrypt(req.plaintext, e, n)
 
         return {
-            "chunks": [str(chunk) for chunk in result["chunks"]]
+            "chunks":          [str(chunk) for chunk in result["chunks"]],
+            "chunk_size_bytes": result["chunk_size_bytes"],
+            "num_chunks":       result["num_chunks"],
         }
 
     except ValueError as e:

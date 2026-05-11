@@ -9,7 +9,7 @@ def _mod_inverse_prime(a, p):
 
 
 def point_add(P, Q, a, p):
-    # Input:  (5, 1), (5, 1), 2, 17   (adding G to itself on the demo curve)
+    # Input:  (5, 1), (5, 1), 2, 17 
     # Output: (6, 3)
     if P is None:
         return Q
@@ -19,14 +19,13 @@ def point_add(P, Q, a, p):
     x1, y1 = P
     x2, y2 = Q
 
-    # If the points are mirror images across the x-axis, they cancel out
+    # If the points are mirror images across the x-axis, cancel out
     if x1 == x2 and (y1 + y2) % p == 0:
         return None
 
     if P == Q:
-        # Point doubling: use the tangent line at P
         if y1 == 0:
-            return None  # vertical tangent, no result
+            return None 
         numerator   = (3 * x1 * x1 + a) % p
         denominator = _mod_inverse_prime(2 * y1, p)
         slope = (numerator * denominator) % p
@@ -45,7 +44,7 @@ def point_add(P, Q, a, p):
 def scalar_multiply(k, P, a, p):
     # Input:  3, (5, 1), 2, 17
     # Output: (10, 6)   →   (5,1) added to itself 3 times on the demo curve
-    result = None   # start at "nothing" (adding nothing + P = P)
+    result = None  
     addend = P
 
     while k > 0:
@@ -59,8 +58,7 @@ def scalar_multiply(k, P, a, p):
 
 def get_all_curve_points(a, b, p):
     # Input:  2, 2, 17
-    # Output: [(5,1), (6,3), (10,6), (3,1), (9,16), ...]   (18 points total)
-    points = []
+    # Output: [(5,1), (6,3), (10,6), (3,1), (9,16), ...] 
     for x in range(p):
         rhs = (pow(x, 3, p) + a * x + b) % p
         for y in range(p):
@@ -80,7 +78,6 @@ def ecdh_key_exchange(G, a, p, n):
     bob_private   = random.randint(2, n - 1)
     bob_public    = scalar_multiply(bob_private, G, a, p)
 
-    # each uses the other's public point — both arrive at the same shared point
     alice_shared  = scalar_multiply(alice_private, bob_public, a, p)
     bob_shared    = scalar_multiply(bob_private, alice_public, a, p)
 
