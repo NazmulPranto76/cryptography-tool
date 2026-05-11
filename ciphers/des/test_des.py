@@ -1,9 +1,5 @@
 # ciphers/des/test_des.py
-#
-# Unit Tests for the Real DES Cipher Implementation.
-# This covers key generation, key scheduling, block encryption/decryption,
-# and the full encrypt/decrypt roundtrip for any-length plaintext.
-#
+
 # Run from project root:
 #   python -m unittest ciphers.des.test_des -v
 

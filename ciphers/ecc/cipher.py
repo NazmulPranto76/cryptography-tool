@@ -58,7 +58,8 @@ def scalar_multiply(k, P, a, p):
 
 def get_all_curve_points(a, b, p):
     # Input:  2, 2, 17
-    # Output: [(5,1), (6,3), (10,6), (3,1), (9,16), ...] 
+    # Output: [(5,1), (6,3), (10,6), (3,1), (9,16), ...]
+    points = []
     for x in range(p):
         rhs = (pow(x, 3, p) + a * x + b) % p
         for y in range(p):

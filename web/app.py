@@ -448,15 +448,21 @@ def rsa_attack(req: RSAAttackRequest):
 
 @app.post("/api/ecc/points")
 def ecc_points(req: ECCPointsRequest):
-    points = ecc.get_all_curve_points(req.a, req.b, req.p)
-    return {"points": points, "count": len(points)}
+    try:
+        points = ecc.get_all_curve_points(req.a, req.b, req.p)
+        return {"points": points, "count": len(points)}
+    except Exception as exc:
+        raise HTTPException(400, str(exc))
 
 
 @app.post("/api/ecc/exchange")
 def ecc_exchange(req: ECCExchangeRequest):
-    G = (req.gx, req.gy)
-    result = ecc.ecdh_key_exchange(G, req.a, req.p, req.n)
-    return result
+    try:
+        G = (req.gx, req.gy)
+        result = ecc.ecdh_key_exchange(G, req.a, req.p, req.n)
+        return result
+    except Exception as exc:
+        raise HTTPException(400, str(exc))
 
 
 # =============================================================================
