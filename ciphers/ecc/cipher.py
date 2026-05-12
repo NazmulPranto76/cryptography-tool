@@ -1,12 +1,10 @@
-import random
+﻿import random
 from utils.bit_helpers import mod_pow
-
 
 def _mod_inverse_prime(a, p):
     # Input:  3, 17
     # Output: 6   →   (3 * 6) % 17 == 1
     return mod_pow(a, p - 2, p)
-
 
 def point_add(P, Q, a, p):
     # Input:  (5, 1), (5, 1), 2, 17 
@@ -40,7 +38,6 @@ def point_add(P, Q, a, p):
 
     return (x3, y3)
 
-
 def scalar_multiply(k, P, a, p):
     # Input:  3, (5, 1), 2, 17
     # Output: (10, 6)   →   (5,1) added to itself 3 times on the demo curve
@@ -55,7 +52,6 @@ def scalar_multiply(k, P, a, p):
 
     return result
 
-
 def get_all_curve_points(a, b, p):
     # Input:  2, 2, 17
     # Output: [(5,1), (6,3), (10,6), (3,1), (9,16), ...]
@@ -67,6 +63,74 @@ def get_all_curve_points(a, b, p):
                 points.append((x, y))
     return points
 
+def multiply_trace(k, G, a, p):
+    # Input:  3, (5,1), 2, 17
+    # Output: dict with 'steps' showing each double-and-add operation
+    k_bin = bin(k)[2:]   # e.g. 3 → '11'
+    steps = []
+    steps.append({
+        "name":   "Start",
+        "desc":   f"k = {k} = {k_bin}₂  (binary). We process bits left-to-right using double-and-add.",
+        "phase":  "start",
+        "result": None,
+        "addend": [G[0], G[1]],
+        "bit":    None,
+    })
+
+    result = None
+    addend = G
+
+    for i, bit in enumerate(k_bin):
+        if bit == '1':
+            result = point_add(result, addend, a, p)
+            steps.append({
+                "name":   f"Bit {i + 1} = 1 → result += addend",
+                "desc":   f"result = result ⊕ ({addend[0]},{addend[1]})" + (f" = ({result[0]},{result[1]})" if result else " = ∞"),
+                "phase":  "add",
+                "result": [result[0], result[1]] if result else None,
+                "addend": [addend[0], addend[1]] if addend else None,
+                "bit":    1,
+            })
+        else:
+            steps.append({
+                "name":   f"Bit {i + 1} = 0 → skip",
+                "desc":   f"Bit is 0 — addend is not added. result stays unchanged.",
+                "phase":  "skip",
+                "result": [result[0], result[1]] if result else None,
+                "addend": [addend[0], addend[1]] if addend else None,
+                "bit":    0,
+            })
+
+        # Double the addend (unless this is the last bit)
+        if i < len(k_bin) - 1:
+            prev = addend
+            addend = point_add(addend, addend, a, p)
+            steps.append({
+                "name":   f"Double addend",
+                "desc":   f"addend = 2×({prev[0]},{prev[1]})" + (f" = ({addend[0]},{addend[1]})" if addend else " = ∞"),
+                "phase":  "double",
+                "result": [result[0], result[1]] if result else None,
+                "addend": [addend[0], addend[1]] if addend else None,
+                "bit":    None,
+            })
+
+    steps.append({
+        "name":   f"Result: {k}×G",
+        "desc":   f"({result[0]},{result[1]})" if result else "∞ (point at infinity)",
+        "phase":  "output",
+        "result": [result[0], result[1]] if result else None,
+        "addend": None,
+        "bit":    None,
+    })
+
+    return {
+        "steps":    steps,
+        "k":        k,
+        "k_binary": k_bin,
+        "G":        [G[0], G[1]],
+        "result":   [result[0], result[1]] if result else None,
+        "num_steps": len(steps),
+    }
 
 def ecdh_key_exchange(G, a, p, n):
     # Input:  (5, 1), 2, 17, 19

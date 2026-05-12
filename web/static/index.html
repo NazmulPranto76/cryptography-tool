@@ -23,7 +23,7 @@
   </script>
 
   <!-- app.js must load before Alpine so cryptoApp() is defined when Alpine initialises -->
-  <script src="/static/js/app.js"></script>
+  <script src="/static/js/app.js?v=4"></script>
 
   <link rel="stylesheet" href="/static/css/style.css" />
 
@@ -35,8 +35,6 @@
 <body x-data="cryptoApp()">
 
 <canvas id="matrixCanvas"></canvas>
-
-<!-- ═══════════════════════════════ HOMEPAGE ════════════════════════════════ -->
 <div x-show="view === 'home'" x-cloak class="home-wrapper" id="homeSection">
 
   <!-- Top label -->
@@ -47,7 +45,6 @@
     </h1>
   </div>
 
-
   <div class="terminal">
     <div class="terminal-header">
       <div class="dot" style="background:#ef4444"></div>
@@ -55,7 +52,6 @@
       <div class="dot" style="background:#4ade80"></div>
       <span class="text-xs text-gray-600 ml-2 mono">cipher — interactive</span>
     </div>
-
 
     <div>
       <div style="min-height:1.6rem;margin-bottom:0.4rem;">
@@ -87,11 +83,9 @@
     </div>
   </div>
 
-
   <p style="font-family:monospace;font-size:0.65rem;font-weight:700;color:#3b3b60;letter-spacing:0.15em;text-transform:uppercase;margin-top:2rem;margin-bottom:0;">
     select algorithm — watch live encryption
   </p>
-
 
   <div class="bubbles-wrap">
     <template x-for="(algo, key) in ALGOS" :key="key">
@@ -108,16 +102,11 @@
     Enter the Tool →
   </button>
 
-
 </div>
-
-
-<!-- ═══════════════════════════════ MAIN APP ════════════════════════════════ -->
 <div x-show="view === 'app'" x-cloak class="app-wrapper">
 
   <div class="bg-blob bg-blob-1"></div>
   <div class="bg-blob bg-blob-2"></div>
-
 
   <nav style="display:flex;align-items:center;justify-content:space-between;padding:0.65rem 1.5rem;background:rgba(7,7,26,0.92);border-bottom:1px solid rgba(99,102,241,0.12);backdrop-filter:blur(8px);">
     <div style="display:flex;align-items:center;gap:1rem;">
@@ -130,7 +119,6 @@
   </nav>
 
   <div class="flex" style="height:calc(100vh - 45px);">
-
 
     <aside class="flex flex-col py-4 px-2 gap-1 overflow-y-auto flex-shrink-0"
            style="width:13.5rem; border-right:1px solid rgba(99,102,241,0.1); background:rgba(7,7,26,0.7);">
@@ -159,11 +147,13 @@
       <div class="sidebar-item" :class="{active: appPage==='analysis-suite'}" @click="appPage='analysis-suite'; clearResult()">
         <span class="text-sm">Analysis Suite</span>
       </div>
+      <div class="section-label px-3 mt-3 mb-1">visualise</div>
+      <div class="sidebar-item" :class="{active: appPage==='simulate'}" @click="appPage='simulate'; clearResult()">
+        <span class="text-sm"> Simulate</span>
+      </div>
     </aside>
 
-
     <main class="flex-1 overflow-y-auto p-8" style="background:transparent;">
-
 
       <div x-show="appPage==='substitution'" x-cloak>
         <h2 style="font-size:1.1rem;font-weight:700;color:#e2e8f0;margin-bottom:0.3rem;">Substitution Cipher</h2>
@@ -222,7 +212,6 @@
         <div x-show="error" class="mt-3 p-3 rounded text-sm" style="background:rgba(239,68,68,.15);color:#f87171;" x-text="error"></div>
       </div>
 
-
       <div x-show="appPage==='transposition'" x-cloak>
         <h2 style="font-size:1.1rem;font-weight:700;color:#e2e8f0;margin-bottom:0.3rem;">Double Transposition Cipher</h2>
         <div class="flex gap-2 mb-5">
@@ -255,7 +244,6 @@
           <div x-show="error" class="p-3 rounded text-sm" style="background:rgba(239,68,68,.15);color:#f87171;" x-text="error"></div>
         </div>
       </div>
-
 
       <div x-show="appPage==='des'" x-cloak>
         <h2 style="font-size:1.1rem;font-weight:700;color:#e2e8f0;margin-bottom:0.3rem;">DES</h2>
@@ -306,7 +294,6 @@
           </template>
         </div>
       </div>
-
 
       <div x-show="appPage==='aes'" x-cloak>
         <h2 style="font-size:1.1rem;font-weight:700;color:#e2e8f0;margin-bottom:0.3rem;">AES — Advanced Encryption Standard</h2>
@@ -371,7 +358,6 @@
           </template>
         </div>
       </div>
-
 
       <div x-show="appPage==='rsa'" x-cloak>
         <h2 style="font-size:1.1rem;font-weight:700;color:#e2e8f0;margin-bottom:0.3rem;">RSA — Public Key Cryptography</h2>
@@ -524,26 +510,28 @@
                 <div class="p-3 rounded" style="background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.2);">
                   <div class="font-bold mb-2" style="color:#60a5fa;">Alice</div>
                   <div><span class="text-gray-400">Private a: </span><span class="mono text-yellow-300" x-text="eccData.exchange.alice_private"></span></div>
-                  <div><span class="text-gray-400">Public A: </span><span class="mono text-green-300" x-text="JSON.stringify(eccData.exchange.alice_public)"></span></div>
+                  <div><span class="text-gray-400">Public A: </span><span class="mono text-green-300" x-text="eccData.exchange.alice_public ? '('+eccData.exchange.alice_public[0]+', '+eccData.exchange.alice_public[1]+')' : '∞'"></span></div>
                 </div>
                 <div class="p-3 rounded" style="background:rgba(167,139,250,.08);border:1px solid rgba(167,139,250,.2);">
                   <div class="font-bold mb-2" style="color:#a78bfa;">Bob</div>
                   <div><span class="text-gray-400">Private b: </span><span class="mono text-yellow-300" x-text="eccData.exchange.bob_private"></span></div>
-                  <div><span class="text-gray-400">Public B: </span><span class="mono text-green-300" x-text="JSON.stringify(eccData.exchange.bob_public)"></span></div>
+                  <div><span class="text-gray-400">Public B: </span><span class="mono text-green-300" x-text="eccData.exchange.bob_public ? '('+eccData.exchange.bob_public[0]+', '+eccData.exchange.bob_public[1]+')' : '∞'"></span></div>
                 </div>
+              </div>
+              <div x-show="!eccData.exchange.alice_shared || !eccData.exchange.bob_shared" class="p-3 rounded text-xs" style="background:rgba(251,191,36,.08);color:#fbbf24;border:1px solid rgba(251,191,36,.2);">
+                ∞ = Point at infinity (identity element). This is mathematically valid but rare — try different curve parameters or re-run.
               </div>
               <div class="p-3 rounded border" :class="eccData.exchange.secrets_match?'border-green-800':'border-red-800'"
                    :style="eccData.exchange.secrets_match?'background:rgba(74,222,128,.08)':'background:rgba(239,68,68,.08)'">
                 <div class="font-bold mb-1" :style="eccData.exchange.secrets_match?'color:#818cf8':'color:#f87171'"
                      x-text="eccData.exchange.secrets_match?'Shared secrets match!':'Mismatch!'"></div>
-                <div class="text-xs"><span class="text-gray-400">Alice: a&times;B = </span><span class="mono text-green-300" x-text="JSON.stringify(eccData.exchange.alice_shared)"></span></div>
-                <div class="text-xs"><span class="text-gray-400">Bob: b&times;A = </span><span class="mono text-green-300" x-text="JSON.stringify(eccData.exchange.bob_shared)"></span></div>
+                <div class="text-xs"><span class="text-gray-400">Alice: a&times;B = </span><span class="mono text-green-300" x-text="eccData.exchange.alice_shared ? '('+eccData.exchange.alice_shared[0]+', '+eccData.exchange.alice_shared[1]+')' : '∞ (point at infinity)'"></span></div>
+                <div class="text-xs"><span class="text-gray-400">Bob: b&times;A = </span><span class="mono text-green-300" x-text="eccData.exchange.bob_shared ? '('+eccData.exchange.bob_shared[0]+', '+eccData.exchange.bob_shared[1]+')' : '∞ (point at infinity)'"></span></div>
               </div>
             </div>
           </template>
         </div>
       </div>
-
 
       <div x-show="appPage==='analysis'" x-cloak>
         <h2 style="font-size:1.1rem;font-weight:700;color:#e2e8f0;margin-bottom:0.3rem;">Performance & Security Analysis</h2>
@@ -642,8 +630,6 @@
           </div>
         </template>
       </div>
-
-      <!-- ═══ ANALYSIS SUITE ═══ -->
       <div x-show="appPage==='analysis-suite'" x-cloak>
         <h2 style="font-size:1.1rem;font-weight:700;color:#e2e8f0;margin-bottom:0.3rem;">Analysis Suite</h2>
         <p style="font-size:0.82rem;color:#6e7898;margin-bottom:1.2rem;">Timing analysis and brute-force demo across all algorithms.</p>
@@ -756,15 +742,123 @@
 
         <div x-show="error" class="mt-3 p-3 rounded text-sm" style="background:rgba(239,68,68,.15);color:#f87171;" x-text="error"></div>
       </div>
+      <div x-show="appPage==='simulate'" x-cloak>
+        <h2 style="font-size:1.1rem;font-weight:700;color:#e2e8f0;margin-bottom:0.3rem;">Simulate — Step-by-Step Encryption</h2>
+        <p class="text-xs mb-4" style="color:#6e7898;">Watch DES or AES encrypt a message one step at a time. Each step shows exactly what the algorithm does to the data.</p>
+        <div class="flex gap-2 mb-4 flex-wrap">
+          <button class="tab-btn" :class="{active: simData.tab==='des'}" @click="simData.tab='des'; simReset()">DES</button>
+          <button class="tab-btn" :class="{active: simData.tab==='aes'}" @click="simData.tab='aes'; simReset()">AES</button>
+        </div>
+        <div class="card p-4 space-y-3 mb-4">
+          <div x-show="error" class="p-3 rounded text-sm" style="background:rgba(239,68,68,.15);color:#f87171;" x-text="error"></div>
+          <div>
+            <label class="section-label">Plaintext</label>
+            <input x-model="simData.plaintext" class="input-field mt-1" placeholder="Enter text to encrypt..." />
+          </div>
+          <div x-show="simData.tab==='des'">
+            <label class="section-label">Key hex <span class="font-normal text-gray-500">(16 hex chars — blank = auto)</span></label>
+            <input x-model="simData.desKeyHex" class="input-field mt-1 mono" placeholder="Auto-generate if blank" />
+          </div>
+          <div x-show="simData.tab==='aes'">
+            <label class="section-label">Key hex <span class="font-normal text-gray-500">(32 hex chars — blank = auto)</span></label>
+            <input x-model="simData.aesKeyHex" class="input-field mt-1 mono" placeholder="Auto-generate if blank" />
+          </div>
+          <button class="btn-primary" @click="runSim()" :disabled="loading" x-text="loading?'Running…':'Run Simulation'"></button>
+        </div>
+        <template x-if="simTrace">
+          <div class="space-y-4">
+            <div class="card p-4">
+              <div class="flex justify-between text-xs mb-2" style="color:#94a3b8;">
+                <span x-text="(simData.step + 1) + ' / ' + simTrace.steps.length + ' steps'"></span>
+                <span x-text="simStep.name"></span>
+              </div>
+              <div class="rounded-full overflow-hidden" style="height:6px;background:rgba(99,102,241,0.15);">
+                <div class="rounded-full" style="height:6px;background:linear-gradient(90deg,#6366f1,#8b5cf6);transition:width 0.3s ease;"
+                     :style="'width:' + simProgress + '%'"></div>
+              </div>
+            </div>
+            <div class="card p-4">
+              <div class="section-label mb-1" x-text="simStep.name"></div>
+              <p class="text-sm" style="color:#94a3b8;" x-text="simStep.desc"></p>
+            </div>
+
+            <!-- DES visualisation: L / R / key / f blocks -->
+            <template x-if="simData.tab==='des'">
+              <div class="space-y-3">
+                <!-- Block (input / IP result / FP result) -->
+                <template x-if="simStep.block">
+                  <div class="card p-4 text-center">
+                    <div class="section-label mb-2">Block (hex)</div>
+                    <span class="mono text-2xl font-bold" style="color:#a5b4fc;" x-text="simStep.block"></span>
+                  </div>
+                </template>
+                <!-- L and R halves (rounds + IP) -->
+                <template x-if="simStep.L">
+                  <div class="grid grid-cols-2 gap-3">
+                    <div class="card p-4 text-center">
+                      <div class="section-label mb-1">Left half (L)</div>
+                      <span class="mono text-xl font-bold" style="color:#60a5fa;" x-text="simStep.L"></span>
+                    </div>
+                    <div class="card p-4 text-center">
+                      <div class="section-label mb-1">Right half (R)</div>
+                      <span class="mono text-xl font-bold" style="color:#c084fc;" x-text="simStep.R"></span>
+                    </div>
+                  </div>
+                </template>
+                <template x-if="simStep.key">
+                  <div class="grid grid-cols-2 gap-3">
+                    <div class="card p-3 text-center">
+                      <div class="section-label mb-1">Round key (K)</div>
+                      <span class="mono text-sm font-bold" style="color:#fbbf24;" x-text="simStep.key"></span>
+                    </div>
+                    <div class="card p-3 text-center">
+                      <div class="section-label mb-1">F(R, K)</div>
+                      <span class="mono text-sm font-bold" style="color:#fb923c;" x-text="simStep.f"></span>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </template>
+
+            <!-- AES visualisation: 4×4 state matrix -->
+            <template x-if="simData.tab==='aes'">
+              <div class="card p-4">
+                <div class="section-label mb-3 text-center">State Matrix (4 × 4 bytes)</div>
+                <div class="grid gap-2 mx-auto" style="grid-template-columns:repeat(4,1fr);max-width:300px;">
+                  <template x-for="(row, ri) in simStep.state" :key="ri">
+                    <template x-for="(cell, ci) in row" :key="ci">
+                      <div class="rounded text-center py-2 font-bold mono text-sm transition-colors duration-300"
+                           :class="aesPhaseColor(simStep.phase)"
+                           x-text="cell"></div>
+                    </template>
+                  </template>
+                </div>
+                <div class="flex flex-wrap gap-2 mt-4 justify-center text-xs">
+                  <span class="px-2 py-1 rounded bg-pink-900 text-pink-200">SubBytes</span>
+                  <span class="px-2 py-1 rounded bg-blue-900  text-blue-200">ShiftRows</span>
+                  <span class="px-2 py-1 rounded bg-purple-900 text-purple-200">MixColumns</span>
+                  <span class="px-2 py-1 rounded bg-green-900 text-green-200">AddRoundKey</span>
+                </div>
+              </div>
+            </template>
+            <div class="text-xs" style="color:#4a4a72;">
+              Key used: <span class="mono" x-text="simTrace.key_hex"></span>
+            </div>
+            <div class="flex items-center gap-3">
+              <button class="btn-primary" @click="simPrev()" :disabled="simData.step === 0">← Prev</button>
+              <button class="btn-primary" @click="simPlay()"
+                      x-text="simData.playing ? '⏸ Pause' : '▶ Play'"></button>
+              <button class="btn-primary" @click="simNext()" :disabled="simData.step >= simTrace.steps.length - 1">Next →</button>
+              <button @click="simReset()" class="text-sm" style="color:#6b6b9e;cursor:pointer;background:none;border:none;">↺ Reset</button>
+            </div>
+
+          </div>
+        </template>
+
+      </div>
 
     </main>
   </div>
 </div>
-
-
-<!-- All JavaScript lives in /static/js/app.js -->
-
-
-
 </body>
 </html>

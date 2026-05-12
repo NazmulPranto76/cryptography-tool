@@ -30,12 +30,12 @@ class TestTransposeFunctions(unittest.TestCase):
         self.assertEqual(result, "GHIABCDEF")
 
     def test_col_transpose_direct_order(self):
-        # key [3,1,2] means: read col 3 first, then col 1, then col 2, for each row
+        # key [3,1,2]: read all of col3 (CFI), then col1 (ADG), then col2 (BEH)
         from ciphers.double_transposition.cipher import _col_transpose_encrypt
         key = [3, 1, 2]
         text = "ABCDEFGHI"  # 3x3 grid: row1=ABC, row2=DEF, row3=GHI
         result = _col_transpose_encrypt(text, key)
-        self.assertEqual(result, "CABFDEIGH")
+        self.assertEqual(result, "CFIADGBEH")
 
     def test_row_transpose_roundtrip(self):
         from ciphers.double_transposition.cipher import _row_transpose_encrypt, _row_transpose_decrypt

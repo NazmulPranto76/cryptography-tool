@@ -1,8 +1,7 @@
-import random
+﻿import random
 import math
 
 from utils.bit_helpers import mod_inverse, mod_pow, int_to_bytes, bytes_to_int
-
 
 def _miller_rabin(n, rounds=10):
     # Input:  17, 10
@@ -15,7 +14,6 @@ def _miller_rabin(n, rounds=10):
         return False
 
     # split n-1 into 2^r * d where d is odd
-    # Basically, n - 1 = 2^r × d, where d is odd. We find r and d by dividing n - 1 by 2 until d is odd.
     r = 0
     d = n - 1
     while d % 2 == 0:
@@ -41,7 +39,6 @@ def _miller_rabin(n, rounds=10):
 
     return True
 
-
 def _generate_prime(bits):
     # Input:  16
     # Output: e.g. 54217  (a random prime of exactly 16 bits)
@@ -51,7 +48,6 @@ def _generate_prime(bits):
         candidate |= 1 
         if _miller_rabin(candidate):
             return candidate
-
 
 def generate_keys(bits=256):
     # Input:  prime size in bits (e.g. 256 → ~512-bit key, 512 → ~1024-bit key)
@@ -80,12 +76,10 @@ def generate_keys(bits=256):
         'key_bits': bits * 2,
     }
 
-
 def _chunk_size(n):
     # Input:  n = 2847361917  (32-bit modulus)
     # Output: 3   (can encrypt 3 bytes per chunk)
     return (n.bit_length() // 8) - 1
-
 
 def encrypt(message_str, e, n):
     # Input:  "HI", 65537, 2847361917
@@ -109,7 +103,6 @@ def encrypt(message_str, e, n):
         'chunk_size_bytes': chunk_size,
     }
 
-
 def decrypt(ciphertext_chunks, d, n):
     # Input:  [1876543, 2341098], 1928374650, 2847361917
     # Output: "HI"
@@ -119,6 +112,75 @@ def decrypt(ciphertext_chunks, d, n):
         recovered_bytes += int_to_bytes(m)
     return recovered_bytes.decode('utf-8')
 
+def encrypt_trace(plaintext, e, n, d=None, p=None, q=None, phi=None):
+    # Input:  "HI", 65537, big_n  (optionally d, p, q, phi for full key trace)
+    # Output: dict with 'steps' showing key structure + first chunk encrypt/decrypt
+    steps = []
+    if p and q and phi:
+        steps.append({
+            "name":   "Key Structure",
+            "desc":   "RSA keys are derived from two large primes p and q.",
+            "phase":  "keygen",
+            "values": [
+                ("p  (prime)", str(p)),
+                ("q  (prime)", str(q)),
+                ("n = p × q", str(n)),
+                ("φ(n) = (p−1)(q−1)", str(phi)),
+                ("e  (public exponent)", str(e)),
+                ("d  (private exponent)", str(d) if d else "unknown"),
+            ],
+        })
+    else:
+        steps.append({
+            "name":   "Public Key",
+            "desc":   "RSA public key (e, n). Private key d is not shown.",
+            "phase":  "keygen",
+            "values": [
+                ("n (modulus)", str(n)),
+                ("e (public exponent)", str(e)),
+            ],
+        })
+    chunk_size  = max(1, _chunk_size(n))
+    first_bytes = plaintext.encode('utf-8')[:chunk_size]
+    m = bytes_to_int(first_bytes)
+    steps.append({
+        "name":   "Convert Text → Integer (m)",
+        "desc":   f"First {len(first_bytes)} byte(s) read as a big-endian integer.",
+        "phase":  "convert",
+        "values": [
+            ("chunk text", first_bytes.decode('latin-1', errors='replace')),
+            ("bytes (hex)", ' '.join(f'{b:02X}' for b in first_bytes)),
+            ("m (integer)", str(m)),
+        ],
+    })
+    c = mod_pow(m, e, n)
+    steps.append({
+        "name":   "Encrypt:  c = mᵉ mod n",
+        "desc":   "Modular exponentiation with the public key. Anyone with (e, n) can encrypt.",
+        "phase":  "encrypt",
+        "values": [
+            ("m", str(m)),
+            ("e", str(e)),
+            ("n", str(n)),
+            ("c = mᵉ mod n", str(c)),
+        ],
+    })
+    if d:
+        m_rec = mod_pow(c, d, n)
+        steps.append({
+            "name":   "Decrypt:  m = cᵈ mod n",
+            "desc":   "Only the holder of private key d can reverse the encryption.",
+            "phase":  "decrypt",
+            "values": [
+                ("c", str(c)),
+                ("d", str(d)),
+                ("n", str(n)),
+                ("m = cᵈ mod n", str(m_rec)),
+                ("matches original?", str(m_rec == m)),
+            ],
+        })
+
+    return {"steps": steps, "num_steps": len(steps)}
 
 def _pollard_rho(n):
     # Input:  2847361917
@@ -140,7 +202,6 @@ def _pollard_rho(n):
     if d != n:
         return d
     return None
-
 
 def factorization_attack(n, e, max_attempts=30):
     # Input:  2847361917, 65537, 30

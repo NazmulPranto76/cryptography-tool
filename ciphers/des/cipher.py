@@ -1,5 +1,4 @@
-# ciphers/des/cipher.py
-
+﻿
 import random
 
 from utils.bit_helpers import bytes_to_bits, bits_to_bytes, xor_bits
@@ -87,42 +86,34 @@ P = [
 
 # 8 S-boxes
 SBOXES = [
-    # S1
     [[14, 4, 13, 1,  2, 15, 11,  8,  3, 10,  6, 12,  5,  9,  0,  7],
      [ 0, 15, 7, 4, 14,  2, 13,  1, 10,  6, 12, 11,  9,  5,  3,  8],
      [ 4,  1,14, 8, 13,  6,  2, 11, 15, 12,  9,  7,  3, 10,  5,  0],
      [15, 12, 8, 2,  4,  9,  1,  7,  5, 11,  3, 14, 10,  0,  6, 13]],
-    # S2
     [[15,  1, 8, 14,  6, 11,  3,  4,  9,  7,  2, 13, 12,  0,  5, 10],
      [ 3, 13, 4,  7, 15,  2,  8, 14, 12,  0,  1, 10,  6,  9, 11,  5],
      [ 0, 14, 7, 11, 10,  4, 13,  1,  5,  8, 12,  6,  9,  3,  2, 15],
      [13,  8,10,  1,  3, 15,  4,  2, 11,  6,  7, 12,  0,  5, 14,  9]],
-    # S3
     [[10,  0, 9, 14,  6,  3, 15,  5,  1, 13, 12,  7, 11,  4,  2,  8],
      [13,  7, 0,  9,  3,  4,  6, 10,  2,  8,  5, 14, 12, 11, 15,  1],
      [13,  6, 4,  9,  8, 15,  3,  0, 11,  1,  2, 12,  5, 10, 14,  7],
      [ 1, 10,13,  0,  6,  9,  8,  7,  4, 15, 14,  3, 11,  5,  2, 12]],
-    # S4
     [[ 7, 13,14,  3,  0,  6,  9, 10,  1,  2,  8,  5, 11, 12,  4, 15],
      [13,  8,11,  5,  6, 15,  0,  3,  4,  7,  2, 12,  1, 10, 14,  9],
      [10,  6, 9,  0, 12, 11,  7, 13, 15,  1,  3, 14,  5,  2,  8,  4],
      [ 3, 15, 0,  6, 10,  1, 13,  8,  9,  4,  5, 11, 12,  7,  2, 14]],
-    # S5
     [[ 2, 12, 4,  1,  7, 10, 11,  6,  8,  5,  3, 15, 13,  0, 14,  9],
      [14, 11, 2, 12,  4,  7, 13,  1,  5,  0, 15, 10,  3,  9,  8,  6],
      [ 4,  2, 1, 11, 10, 13,  7,  8, 15,  9, 12,  5,  6,  3,  0, 14],
      [11,  8,12,  7,  1, 14,  2, 13,  6, 15,  0,  9, 10,  4,  5,  3]],
-    # S6
     [[12,  1,10, 15,  9,  2,  6,  8,  0, 13,  3,  4, 14,  7,  5, 11],
      [10, 15, 4,  2,  7, 12,  9,  5,  6,  1, 13, 14,  0, 11,  3,  8],
      [ 9, 14,15,  5,  2,  8, 12,  3,  7,  0,  4, 10,  1, 13, 11,  6],
      [ 4,  3, 2, 12,  9,  5, 15, 10, 11, 14,  1,  7,  6,  0,  8, 13]],
-    # S7
     [[ 4, 11, 2, 14, 15,  0,  8, 13,  3, 12,  9,  7,  5, 10,  6,  1],
      [13,  0,11,  7,  4,  9,  1, 10, 14,  3,  5, 12,  2, 15,  8,  6],
      [ 1,  4,11, 13, 12,  3,  7, 14, 10, 15,  6,  8,  0,  5,  9,  2],
      [ 6, 11,13,  8,  1,  4, 10,  7,  9,  5,  0, 15, 14,  2,  3, 12]],
-    # S8
     [[13,  2, 8,  4,  6, 15, 11,  1, 10,  9,  3, 14,  5,  0, 12,  7],
      [ 1, 15,13,  8, 10,  3,  7,  4, 12,  5,  6, 11,  0, 14,  9,  2],
      [ 7, 11, 4,  1,  9, 12, 14,  2,  0,  6, 10, 13, 15,  3,  5,  8],
@@ -132,12 +123,10 @@ SBOXES = [
 def _permute(bits, table):
     return [bits[pos - 1] for pos in table]
 
-
 def _left_rotate(bits, n):
     # Input:  [1,0,1,0,...], shift amount n
     # Output: bits rotated left 
     return bits[n:] + bits[:n]
-
 
 def _sbox_lookup(six_bits, sbox):
     # Input:  6-bit list [b0,b1,b2,b3,b4,b5]
@@ -148,10 +137,8 @@ def _sbox_lookup(six_bits, sbox):
     # Convert the integer result (0–15) back to a 4-bit list
     return [(value >> (3 - i)) & 1 for i in range(4)]
 
-
 def generate_key():
     return bytes(random.randint(0, 255) for _ in range(8))
-
 
 def generate_round_keys(key_bytes):
 
@@ -159,11 +146,7 @@ def generate_round_keys(key_bytes):
         raise ValueError(f"DES key must be exactly 8 bytes. Got {len(key_bytes)}.")
 
     key_bits = bytes_to_bits(key_bytes)          # 8 bytes → 64-bit list
-
-    # Step 1: PC-1 removes the 8 parity bits (64 bits → 56 bits)
     key_56 = _permute(key_bits, PC1)
-
-    # Step 2: Split into two 28-bit halves
     C = key_56[:28]
     D = key_56[28:]
 
@@ -178,47 +161,28 @@ def generate_round_keys(key_bytes):
 
     return round_keys                           
 
-
 def _feistel_f(right_32, round_key_48):
-
-    # Step 1: Expand 32 → 48 bits
     expanded = _permute(right_32, E)
-
-    # Step 2: XOR with the round key
     xored = xor_bits(expanded, round_key_48)
-
-    # Step 3: Eight S-boxes in parallel (48 bits → 32 bits)
     sbox_output = []
     for i in range(8):
         six_bits = xored[i * 6 : (i + 1) * 6]          # take 6 bits for S-box i
         sbox_output += _sbox_lookup(six_bits, SBOXES[i])  # get 4 bits back
-
-    # Step 4: P-box permutation
     return _permute(sbox_output, P)
 
-
 def _feistel_encrypt_block(block_bits, round_keys):
-    # Step 1: Initial Permutation
     bits  = _permute(block_bits, IP)
-
-    # Step 2: Split
     left  = bits[:32]
     right = bits[32:]
-
-    # Step 3: 16 Feistel rounds
     for i in range(16):
         new_left  = right
         new_right = xor_bits(left, _feistel_f(right, round_keys[i]))
         left  = new_left
         right = new_right
-
-    # Step 4 + 5: Swap halves, then apply Final Permutation
     return _permute(right + left, FP)
-
 
 def _feistel_decrypt_block(block_bits, round_keys):
     return _feistel_encrypt_block(block_bits, list(reversed(round_keys)))
-
 
 def _pkcs7_pad(data):
     # Input:  b'HELLO'  (5 bytes)
@@ -226,12 +190,10 @@ def _pkcs7_pad(data):
     pad_length = 8 - (len(data) % 8)
     return data + bytes([pad_length] * pad_length)
 
-
 def _pkcs7_unpad(data):
     # Input:  padded bytes
     # Output: original bytes
     return data[:-data[-1]]
-
 
 def encrypt(plaintext, key_bytes):
     # Input:  "HELLO WORLD",  8-byte key
@@ -254,7 +216,6 @@ def encrypt(plaintext, key_bytes):
         'num_blocks':           len(pt_bytes) // 8,
         'plaintext_padded_hex': pt_bytes.hex().upper(),
     }
-
 
 def decrypt(ciphertext_hex, key_bytes):
     try:
@@ -279,4 +240,70 @@ def decrypt(ciphertext_hex, key_bytes):
     return {
         'plaintext':  _pkcs7_unpad(pt_bytes).decode('latin-1', errors='replace'),
         'round_keys': round_keys,
+    }
+
+def encrypt_trace(plaintext, key_bytes):
+    # Input:  "HELLO", 8-byte key
+    # Output: dict with 'steps' list showing every intermediate state for visualization
+    if len(key_bytes) != 8:
+        raise ValueError(f"DES key must be exactly 8 bytes. Got {len(key_bytes)}.")
+
+    round_keys = generate_round_keys(key_bytes)
+    pt_bytes   = _pkcs7_pad(plaintext.encode('latin-1', errors='replace'))
+    block_bits = bytes_to_bits(pt_bytes[:8])   # trace the first 8-byte block only
+
+    def bh(bits):
+        return bits_to_bytes(bits).hex().upper()
+
+    steps = []
+    steps.append({
+        "name":  "Plaintext Block",
+        "desc":  "First 8-byte block (padded if needed). 64 bits enter the cipher.",
+        "phase": "input",
+        "block": pt_bytes[:8].hex().upper(),
+        "L": None, "R": None, "key": None, "f": None,
+    })
+    after_ip = _permute(block_bits, IP)
+    L = after_ip[:32]
+    R = after_ip[32:]
+    steps.append({
+        "name":  "Initial Permutation (IP)",
+        "desc":  "64 bits are reordered by the IP table, then split into 32-bit halves L₀ and R₀.",
+        "phase": "ip",
+        "block": None,
+        "L": bh(L), "R": bh(R), "key": None, "f": None,
+    })
+
+    # Steps 2–17: 16 Feistel rounds
+    for i in range(16):
+        rk    = round_keys[i]
+        f_out = _feistel_f(R, rk)
+        new_L = R
+        new_R = xor_bits(L, f_out)
+        steps.append({
+            "name":  f"Round {i + 1}",
+            "desc":  f"L{i+1} = R{i}   ·   R{i+1} = L{i} ⊕ F(R{i}, K{i+1})",
+            "phase": "round",
+            "block": None,
+            "L":   bh(new_L),
+            "R":   bh(new_R),
+            "key": bh(rk),
+            "f":   bh(f_out),
+        })
+        L = new_L
+        R = new_R
+    after_fp = _permute(R + L, FP)
+    steps.append({
+        "name":  "Final Permutation (FP)",
+        "desc":  "Halves are swapped (R₁₆ ‖ L₁₆), then FP (inverse of IP) is applied.",
+        "phase": "fp",
+        "block": bh(after_fp),
+        "L": None, "R": None, "key": None, "f": None,
+    })
+
+    return {
+        "steps":      steps,
+        "key_hex":    key_bytes.hex().upper(),
+        "num_rounds": 16,
+        "num_steps":  len(steps),
     }

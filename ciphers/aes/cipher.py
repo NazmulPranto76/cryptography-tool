@@ -1,4 +1,4 @@
-import random
+﻿import random
 
 # AES S-Box: 256-entry substitution table — each byte is replaced by the value at its index
 SBOX = [
@@ -28,7 +28,6 @@ for _i, _s in enumerate(SBOX):
 # Round constants 
 RCON = [0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1B, 0x36]
 
-
 def _gf_multiply(a, b):
     # Input:  0x57, 0x13
     # Output: 0xFE
@@ -43,7 +42,6 @@ def _gf_multiply(a, b):
         b >>= 1
     return result
 
-
 def _bytes_to_state(data):
     # Input:  b'\x00\x01\x02...\x0f'  (16 bytes)
     # Output: 4x4 grid filled column by column: state[row][col] = data[row + 4*col]
@@ -52,7 +50,6 @@ def _bytes_to_state(data):
         for col in range(4):
             state[row][col] = data[row + 4 * col]
     return state
-
 
 def _state_to_bytes(state):
     # Input:  4x4 state matrix
@@ -63,30 +60,25 @@ def _state_to_bytes(state):
             result.append(state[row][col])
     return bytes(result)
 
-
 def _sub_bytes(state):
     # Input:  [[0,0,...], ...]   (any 4x4 state)
     # Output: every byte replaced by SBOX[byte]
     return [[SBOX[state[r][c]] for c in range(4)] for r in range(4)]
-
 
 def _inv_sub_bytes(state):
     # Input:  state after SubBytes
     # Output: original state restored using the inverse S-Box
     return [[INV_SBOX[state[r][c]] for c in range(4)] for r in range(4)]
 
-
 def _shift_rows(state):
     # Input:  [[1,2,3,4], [5,6,7,8], [9,10,11,12], [13,14,15,16]]
     # Output: [[1,2,3,4], [6,7,8,5], [11,12,9,10], [16,13,14,15]]
     return [[state[r][(c + r) % 4] for c in range(4)] for r in range(4)]
 
-
 def _inv_shift_rows(state):
     # Input:  shifted state
     # Output: original state (shifts each row right by its row index)
     return [[state[r][(c - r) % 4] for c in range(4)] for r in range(4)]
-
 
 def _mix_columns(state):
     # Input:  any 4x4 state
@@ -100,7 +92,6 @@ def _mix_columns(state):
         new_state[3][col] = _gf_multiply(3, s[0]) ^ s[1]                   ^ s[2]                   ^ _gf_multiply(2, s[3])
     return new_state
 
-
 def _inv_mix_columns(state):
     # Input:  state after MixColumns
     # Output: original column values restored using the inverse AES matrix
@@ -113,12 +104,10 @@ def _inv_mix_columns(state):
         new_state[3][col] = _gf_multiply(11, s[0]) ^ _gf_multiply(13, s[1]) ^ _gf_multiply(9,  s[2]) ^ _gf_multiply(14, s[3])
     return new_state
 
-
 def _add_round_key(state, round_key):
     # Input:  state, round_key  (both 4x4 matrices)
     # Output: state XOR round_key, byte by byte — mixes the secret key into the data
     return [[state[r][c] ^ round_key[r][c] for c in range(4)] for r in range(4)]
-
 
 def key_expansion(key_bytes):
     # Input:  16/24/32-byte key
@@ -154,19 +143,16 @@ def key_expansion(key_bytes):
 
     return round_keys
 
-
 def _pkcs7_pad(data, block_size=16):
     # Input:  b'HELLO', 16
     # Output: b'HELLO' + 11 bytes of value 0x0B 
     pad_length = block_size - (len(data) % block_size)
     return data + bytes([pad_length] * pad_length)
 
-
 def _pkcs7_unpad(data):
     # Input:  padded bytes
     # Output: original bytes with padding removed 
     return data[:-data[-1]]
-
 
 def _encrypt_block(block_bytes, round_keys, nr):
     # Input:  16-byte block, expanded round keys, number of rounds
@@ -186,7 +172,6 @@ def _encrypt_block(block_bytes, round_keys, nr):
     state = _add_round_key(state, round_keys[nr])
     return _state_to_bytes(state)
 
-
 def _decrypt_block(block_bytes, round_keys, nr):
     # Input:  16-byte encrypted block, same round keys, same nr
     # Output: original 16-byte plaintext block
@@ -205,10 +190,8 @@ def _decrypt_block(block_bytes, round_keys, nr):
     state = _add_round_key(state, round_keys[0])
     return _state_to_bytes(state)
 
-
 # Maps key size in bits → key length in bytes
 _KEY_SIZE_BYTES = {128: 16, 192: 24, 256: 32}
-
 
 def generate_key(key_size=128):
     # Input:  128, 192, or 256
@@ -216,7 +199,6 @@ def generate_key(key_size=128):
     if key_size not in _KEY_SIZE_BYTES:
         raise ValueError(f"key_size must be 128, 192, or 256. Got {key_size}.")
     return bytes(random.randint(0, 255) for _ in range(_KEY_SIZE_BYTES[key_size]))
-
 
 def encrypt(plaintext, key_bytes):
     # Input:  "HELLO WORLD", 16-byte key
@@ -239,7 +221,6 @@ def encrypt(plaintext, key_bytes):
         'num_blocks':       len(pt_bytes) // 16,
         'variant':          variant,
     }
-
 
 def decrypt(ciphertext_hex, key_bytes):
     # Input:  hex string from encrypt(), same key bytes
@@ -266,4 +247,86 @@ def decrypt(ciphertext_hex, key_bytes):
         'plaintext':  _pkcs7_unpad(pt_bytes).decode('utf-8'),
         'round_keys': round_keys,
         'variant':    variant,
+    }
+
+def encrypt_trace(plaintext, key_bytes):
+    # Input:  "HELLO", 16/24/32-byte key
+    # Output: dict with 'steps' list — every intermediate 4×4 state for visualization
+    round_keys = key_expansion(key_bytes)
+    nk = len(key_bytes) // 4
+    nr = 6 + nk
+    variant = f"AES-{len(key_bytes) * 8}"
+
+    pt_bytes = _pkcs7_pad(plaintext.encode('utf-8'))
+    block    = pt_bytes[:16]   # trace the first 16-byte block only
+
+    def grid(state):
+        # Convert state to 4×4 list of 2-digit hex strings
+        return [[f"{state[r][c]:02X}" for c in range(4)] for r in range(4)]
+
+    steps = []
+    state = _bytes_to_state(block)
+
+    steps.append({
+        "name":  "Plaintext",
+        "desc":  "Input bytes arranged as a 4×4 state matrix (filled column by column).",
+        "phase": "input",
+        "state": grid(state),
+    })
+
+    state = _add_round_key(state, round_keys[0])
+    steps.append({
+        "name":  "Initial AddRoundKey",
+        "desc":  "State XOR Round Key 0 (the original key). Called 'whitening' — hides structure before any rounds.",
+        "phase": "add_round_key",
+        "state": grid(state),
+    })
+
+    for i in range(1, nr + 1):
+        state = _sub_bytes(state)
+        steps.append({
+            "name":  f"Round {i}  —  SubBytes",
+            "desc":  "Each byte is replaced by its S-Box value. Adds non-linearity (confusion).",
+            "phase": "sub_bytes",
+            "state": grid(state),
+        })
+
+        state = _shift_rows(state)
+        steps.append({
+            "name":  f"Round {i}  —  ShiftRows",
+            "desc":  "Row 0 unchanged · Row 1 shifted left 1 · Row 2 shifted left 2 · Row 3 shifted left 3. Spreads bytes across columns (diffusion).",
+            "phase": "shift_rows",
+            "state": grid(state),
+        })
+
+        if i < nr:   # final round skips MixColumns
+            state = _mix_columns(state)
+            steps.append({
+                "name":  f"Round {i}  —  MixColumns",
+                "desc":  "Each column is multiplied by a fixed matrix in GF(2⁸). One byte change affects all 4 bytes in the column.",
+                "phase": "mix_columns",
+                "state": grid(state),
+            })
+
+        state = _add_round_key(state, round_keys[i])
+        steps.append({
+            "name":  f"Round {i}  —  AddRoundKey",
+            "desc":  f"State XOR Round Key {i}. This is the only step that directly mixes in the secret key.",
+            "phase": "add_round_key",
+            "state": grid(state),
+        })
+
+    steps.append({
+        "name":  "Ciphertext",
+        "desc":  "Encryption complete. Read column-major to get the final ciphertext bytes.",
+        "phase": "output",
+        "state": grid(state),
+    })
+
+    return {
+        "steps":      steps,
+        "variant":    variant,
+        "key_hex":    key_bytes.hex().upper(),
+        "num_rounds": nr,
+        "num_steps":  len(steps),
     }

@@ -1,16 +1,14 @@
-import random
+﻿import random
 import string
 
 # The order of letters in English from most to least common
 ENGLISH_FREQ_ORDER = "ETAOINSHRDLCUMWFGYPBVKJXQZ"
-
 
 def generate_random_key():
     # Output: e.g. "QWERTYUIOPASDFGHJKLZXCVBNM"
     letters = list(string.ascii_uppercase)
     random.shuffle(letters)
     return "".join(letters)
-
 
 def encrypt(plaintext, key):
     # Input:  "HELLO", "QWERTYUIOPASDFGHJKLZXCVBNM"
@@ -24,7 +22,6 @@ def encrypt(plaintext, key):
             result += ch
     return result
 
-
 def decrypt(ciphertext, key):
     # Input:  "ITSSG", "QWERTYUIOPASDFGHJKLZXCVBNM"
     # Output: "HELLO"
@@ -32,7 +29,6 @@ def decrypt(ciphertext, key):
     for i, ch in enumerate(key):
         reverse_key[ord(ch) - ord('A')] = chr(i + ord('A'))
     return encrypt(ciphertext, reverse_key)
-
 
 def frequency_analysis(ciphertext):
     # Input:  "ITSSG"
@@ -44,8 +40,6 @@ def frequency_analysis(ciphertext):
         if ch.isalpha():
             freq[ch] = freq.get(ch, 0) + 1
             total += 1
-
-    # Sort cipher letters from most frequent to least frequent
     freq_pairs = []
     for letter, count in freq.items():
         freq_pairs.append((count, letter))
@@ -54,8 +48,6 @@ def frequency_analysis(ciphertext):
     sorted_cipher_letters = []
     for count, letter in freq_pairs:
         sorted_cipher_letters.append(letter)
-
-    # Map each cipher letter to the English letter with the same rank
     mapping = {}
     for rank, cipher_letter in enumerate(sorted_cipher_letters):
         if rank < len(ENGLISH_FREQ_ORDER):
@@ -75,6 +67,43 @@ def frequency_analysis(ciphertext):
         'guessed_plaintext': guessed_plaintext,
     }
 
+def encrypt_trace(plaintext, key):
+    # Input:  "HELLO", "QWERTYUIOPASDFGHJKLZXCVBNM"
+    # Output: dict with 'steps' list — one step per character
+    steps = []
+    result = ''
+    for ch in plaintext.upper():
+        if ch.isalpha():
+            pos = ord(ch) - ord('A')
+            enc = key[pos]
+            result += enc
+            steps.append({
+                "name":     f"'{ch}' → '{enc}'",
+                "desc":     f"'{ch}' is letter #{pos + 1} (A=1) → key[{pos}] = '{enc}'",
+                "phase":    "letter",
+                "input":    ch,
+                "output":   enc,
+                "position": pos,
+                "so_far":   result,
+            })
+        else:
+            result += ch
+            steps.append({
+                "name":     f"'{ch}' — pass-through",
+                "desc":     f"Not a letter — kept unchanged",
+                "phase":    "skip",
+                "input":    ch,
+                "output":   ch,
+                "position": None,
+                "so_far":   result,
+            })
+    return {
+        "steps":      steps,
+        "key":        key,
+        "plaintext":  plaintext.upper(),
+        "ciphertext": result,
+        "num_steps":  len(steps),
+    }
 
 def brute_force_attack(ciphertext):
     # Input:  "ITSSG"

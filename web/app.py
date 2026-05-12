@@ -59,16 +59,50 @@ class TranspositionDecryptRequest(BaseModel):
 
 class DESRequest(BaseModel):
     plaintext: str
-    key_hex: Optional[str] = None  
+    key_hex: Optional[str] = None
 
 class DESDecryptRequest(BaseModel):
     ciphertext_hex: str
     key_hex: str
 
+class SubTraceRequest(BaseModel):
+    plaintext: str
+    key: Optional[str] = None
+
+class TransTraceRequest(BaseModel):
+    plaintext: str
+    key1: str = "3 1 4 2"
+    key2: str = "2 4 1 3"
+
+class RSATraceRequest(BaseModel):
+    plaintext: str
+    e: str
+    n: str
+    d: Optional[str] = None
+    p: Optional[str] = None
+    q: Optional[str] = None
+    phi: Optional[str] = None
+
+class ECCTraceRequest(BaseModel):
+    k: int = 3
+    gx: int = 5
+    gy: int = 1
+    a: int = 2
+    p: int = 17
+
+class DESTraceRequest(BaseModel):
+    plaintext: str
+    key_hex: Optional[str] = None
+
 class AESRequest(BaseModel):
     plaintext: str
-    key_size: int = 128         
-    key_hex: Optional[str] = None  
+    key_size: int = 128
+    key_hex: Optional[str] = None
+
+class AESTraceRequest(BaseModel):
+    plaintext: str
+    key_size: int = 128
+    key_hex: Optional[str] = None
 
 class AESDecryptRequest(BaseModel):
     ciphertext_hex: str
@@ -264,6 +298,83 @@ def aes_decrypt(req: AESDecryptRequest):
         return result
     except ValueError as e:
         raise HTTPException(400, str(e))
+
+
+# =============================================================================
+# SIMULATION / TRACE ROUTES
+# =============================================================================
+
+@app.post("/api/sub/trace")
+def sub_trace(req: SubTraceRequest):
+    try:
+        key = req.key.upper() if req.key else sub.generate_random_key()
+        from ciphers.substitution.cipher import encrypt_trace as _sub_trace
+        return _sub_trace(req.plaintext, key)
+    except Exception as exc:
+        raise HTTPException(400, str(exc))
+
+
+@app.post("/api/transposition/trace")
+def trans_trace(req: TransTraceRequest):
+    try:
+        key1 = dt.parse_key(req.key1)
+        key2 = dt.parse_key(req.key2)
+        if key1 is None or key2 is None:
+            raise HTTPException(400, "Keys must be space-separated integers, e.g. '3 1 4 2'.")
+        from ciphers.double_transposition.cipher import encrypt_trace as _trans_trace
+        return _trans_trace(req.plaintext, key1, key2)
+    except Exception as exc:
+        raise HTTPException(400, str(exc))
+
+
+@app.post("/api/rsa/trace")
+def rsa_trace_route(req: RSATraceRequest):
+    try:
+        from ciphers.rsa.cipher import encrypt_trace as _rsa_trace
+        return _rsa_trace(
+            req.plaintext,
+            int(req.e), int(req.n),
+            int(req.d)   if req.d   else None,
+            int(req.p)   if req.p   else None,
+            int(req.q)   if req.q   else None,
+            int(req.phi) if req.phi else None,
+        )
+    except Exception as exc:
+        raise HTTPException(400, str(exc))
+
+
+@app.post("/api/ecc/trace")
+def ecc_trace_route(req: ECCTraceRequest):
+    try:
+        from ciphers.ecc.cipher import multiply_trace
+        return multiply_trace(req.k, (req.gx, req.gy), req.a, req.p)
+    except Exception as exc:
+        raise HTTPException(400, str(exc))
+
+
+@app.post("/api/des/trace")
+def des_trace(req: DESTraceRequest):
+    try:
+        key = bytes.fromhex(req.key_hex) if req.key_hex else des.generate_key()
+        result = des.encrypt_trace(req.plaintext, key)
+        result["key_hex"] = key.hex().upper()
+        return result
+    except Exception as exc:
+        raise HTTPException(400, str(exc))
+
+
+@app.post("/api/aes/trace")
+def aes_trace(req: AESTraceRequest):
+    if req.key_size not in (128, 192, 256):
+        raise HTTPException(400, "key_size must be 128, 192, or 256.")
+    try:
+        key = bytes.fromhex(req.key_hex) if req.key_hex else aes.generate_key(key_size=req.key_size)
+        from ciphers.aes.cipher import encrypt_trace as _aes_trace
+        result = _aes_trace(req.plaintext, key)
+        result["key_hex"] = key.hex().upper()
+        return result
+    except Exception as exc:
+        raise HTTPException(400, str(exc))
 
 
 # =============================================================================

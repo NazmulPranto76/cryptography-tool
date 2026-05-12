@@ -1,6 +1,4 @@
-// app.js — Alpine.js component data and all API methods for the Cryptography Tool
-
-const PLAIN_TEXT = "WELCOME TO CRYPTOGRAPHY PROJECT";
+﻿const PLAIN_TEXT = "WELCOME TO CRYPTOGRAPHY PROJECT";
 
 const ALGOS = {
   substitution: {
@@ -53,8 +51,6 @@ const ALGOS = {
     speed: 40,
   },
 };
-
-// ── Matrix rain background animation ──────────────────────────────────────────
 function initMatrix() {
   const canvas = document.getElementById('matrixCanvas');
   if (!canvas) return;
@@ -83,8 +79,6 @@ function initMatrix() {
 }
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-
-// ── Alpine.js component — all state and API methods ───────────────────────────
 function cryptoApp() {
   return {
 
@@ -100,8 +94,6 @@ function cryptoApp() {
     get ALGOS() { return ALGOS; },
     get currentAlgo() { return ALGOS[this.selectedAlgo]; },
     get isCipher() { return this.phase === 'typing-enc' || this.phase === 'encrypted'; },
-
-    // ── Per-cipher UI state ──
     subTab: 'enc', transTab: 'enc', desTab: 'enc',
     aesTab: 'enc', rsaTab: 'gen',  eccTab: 'params',
     suiteTab: 'timing',
@@ -127,9 +119,45 @@ function cryptoApp() {
       { id: 'aes',           label: 'AES',           icon: '' },
       { id: 'rsa',           label: 'RSA',           icon: '' },
       { id: 'ecc',           label: 'ECC',           icon: '' },
+      { id: 'simulate',      label: 'Simulate',      icon: '' },
     ],
+    simData: {
+      tab:        'des',
+      plaintext:  'HELLO WORLD',
+      desKeyHex:  '',
+      aesKeyHex:  '',
+      aesKeySize: 128,
+      desTrace:   null,
+      aesTrace:   null,
+      step:       0,
+      playing:    false,
+      _timer:     null,
+    },
 
-    // ── Lifecycle ──
+    get simTrace() {
+      return (this.simData.tab === 'des' ? this.simData.desTrace : this.simData.aesTrace) || null;
+    },
+    get simStep() {
+      if (!this.simTrace) return null;
+      return this.simTrace.steps[this.simData.step] || null;
+    },
+    get simProgress() {
+      if (!this.simTrace) return 0;
+      return Math.round((this.simData.step / (this.simTrace.steps.length - 1)) * 100);
+    },
+
+    // AES phase → highlight colour class for the state grid cells
+    aesPhaseColor(phase) {
+      const map = {
+        input:        'bg-gray-700 text-gray-200',
+        add_round_key:'bg-green-900  text-green-200',
+        sub_bytes:    'bg-pink-900   text-pink-200',
+        shift_rows:   'bg-blue-900   text-blue-200',
+        mix_columns:  'bg-purple-900 text-purple-200',
+        output:       'bg-indigo-900 text-indigo-200',
+      };
+      return map[phase] || 'bg-gray-700 text-gray-200';
+    },
     init() {
       initMatrix();
       this.startAnimation();
@@ -144,8 +172,6 @@ function cryptoApp() {
       this.phase = 'plain';
       this.startAnimation();
     },
-
-    // ── Home screen typewriter animation ──
     async startAnimation() {
       const gen = this.animGen;
 
@@ -207,8 +233,6 @@ function cryptoApp() {
     },
 
     clearResult() { this.result = {}; this.error = ''; },
-
-    // ── Shared fetch helper — all API calls go through here ──
     async api(path, body = null) {
       this.error = '';
       const opts = body
@@ -227,8 +251,6 @@ function cryptoApp() {
       if (!res.ok) throw new Error(data.detail || 'Request failed');
       return data;
     },
-
-    // ── Substitution cipher ──
     async subEncrypt() {
       try { this.result = await this.api('substitution/encrypt', { plaintext: this.sub.plaintext, key: this.sub.key || null }); }
       catch(e) { this.error = e.message; }
@@ -241,8 +263,6 @@ function cryptoApp() {
       try { this.result = await this.api('substitution/analyze', { ciphertext: this.sub.ciphertext }); }
       catch(e) { this.error = e.message; }
     },
-
-    // ── Double Transposition ──
     async transEncrypt() {
       try { this.result = await this.api('transposition/encrypt', { text: this.trans.text, key1: this.trans.key1, key2: this.trans.key2 }); }
       catch(e) { this.error = e.message; }
@@ -251,8 +271,6 @@ function cryptoApp() {
       try { this.result = await this.api('transposition/decrypt', { ciphertext: this.trans.text, key1: this.trans.key1, key2: this.trans.key2 }); }
       catch(e) { this.error = e.message; }
     },
-
-    // ── DES ──
     async desEncrypt() {
       try {
         this.result  = await this.api('des/encrypt', { plaintext: this.des.plaintext, key_hex: this.des.keyHex || null });
@@ -264,8 +282,6 @@ function cryptoApp() {
       try { this.result = await this.api('des/decrypt', { ciphertext_hex: this.des.ctHex, key_hex: this.des.keyHex }); }
       catch(e) { this.error = e.message; }
     },
-
-    // ── AES ──
     async aesEncrypt() {
       try {
         this.result      = await this.api('aes/encrypt', { plaintext: this.aesData.plaintext, key_size: parseInt(this.aesData.keySize), key_hex: this.aesData.keyHex || null });
@@ -277,8 +293,6 @@ function cryptoApp() {
       try { this.result = await this.api('aes/decrypt', { ciphertext_hex: this.aesData.ctHex, key_hex: this.aesData.keyHex }); }
       catch(e) { this.error = e.message; }
     },
-
-    // ── RSA ──
     async rsaGenerate() {
       this.loading = true;
       try {
@@ -316,8 +330,45 @@ function cryptoApp() {
         this.rsaData.attack = { n: dk.n, e: dk.e, result: ar };
       } catch(e) { this.error = e.message; } finally { this.loading = false; }
     },
-
-    // ── ECC ──
+    async runSim() {
+      this.simStopPlay();
+      this.simData.step = 0;
+      try {
+        if (this.simData.tab === 'des') {
+          this.simData.desTrace = await this.api('des/trace',
+            { plaintext: this.simData.plaintext, key_hex: this.simData.desKeyHex || null });
+        } else {
+          this.simData.aesTrace = await this.api('aes/trace',
+            { plaintext: this.simData.plaintext, key_size: this.simData.aesKeySize, key_hex: this.simData.aesKeyHex || null });
+        }
+      } catch(e) { this.error = e.message; }
+    },
+    simNext() {
+      if (this.simTrace && this.simData.step < this.simTrace.steps.length - 1)
+        this.simData.step++;
+    },
+    simPrev() {
+      if (this.simData.step > 0) this.simData.step--;
+    },
+    simPlay() {
+      if (this.simData.playing) { this.simStopPlay(); return; }
+      this.simData.playing = true;
+      this.simData._timer = setInterval(() => {
+        if (!this.simTrace || this.simData.step >= this.simTrace.steps.length - 1) {
+          this.simStopPlay();
+        } else {
+          this.simData.step++;
+        }
+      }, 1000);
+    },
+    simStopPlay() {
+      clearInterval(this.simData._timer);
+      this.simData.playing = false;
+    },
+    simReset() {
+      this.simStopPlay();
+      this.simData.step = 0;
+    },
     async eccPoints() {
       try { const r = await this.api('ecc/points', { p: this.eccData.p, a: this.eccData.a, b: this.eccData.b }); this.eccData.points = r.points; }
       catch(e) { this.error = e.message; }
@@ -326,8 +377,6 @@ function cryptoApp() {
       try { this.eccData.exchange = await this.api('ecc/exchange', { p: this.eccData.p, a: this.eccData.a, b: this.eccData.b, gx: this.eccData.gx, gy: this.eccData.gy, n: this.eccData.n }); }
       catch(e) { this.error = e.message; }
     },
-
-    // ── Analysis suite ──
     async runTiming() {
       if (!this.suite.plaintext.trim()) { this.error = 'Please enter a plaintext.'; return; }
       this.loading = true; this.error = ''; this.suite.timingResults = null;
@@ -349,8 +398,6 @@ function cryptoApp() {
         this.suite.bruteResults = r.results;
       } catch(e) { this.error = e.message; } finally { this.loading = false; }
     },
-
-    // ── Performance chart ──
     async loadPerformance() {
       this.loading = true; this.perfData = null; this.error = '';
       const text = this.perfText.trim();
